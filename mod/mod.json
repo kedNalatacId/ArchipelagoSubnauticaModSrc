@@ -1,0 +1,10 @@
+{
+    "Id": "Archipelago",
+    "DisplayName": "Archipelago",
+    "Author": "Daivuk",
+    "Version": "1.0",
+    "Enable": true,
+    "Game": "Subnautica",
+    "AssemblyName": "Archipelago.dll",
+    "EntryMethod": "Archipelago.MainPatcher.Patch"
+}
