@@ -75,7 +75,6 @@ namespace Archipelago
                     copied_fade = 1.0f;
                 }
             }
-
             copied_fade -= Time.deltaTime;
         }
 #endif
@@ -192,6 +191,12 @@ namespace Archipelago
         {
             string msg = gameObject.transform.position.ToString().Trim() + ": ";
 
+            var tech_tag = gameObject.GetComponent<TechTag>();
+            if (tech_tag != null)
+            {
+                msg += "(" + tech_tag.type.ToString() + ")";
+            }
+
             Component[] components = gameObject.GetComponents(typeof(Component));
             for (int i = 0; i < components.Length; i++)
             {
@@ -199,11 +204,6 @@ namespace Archipelago
                 var component_name = components[i].ToString().Split('(').GetLast();
                 component_name = component_name.Substring(0, component_name.Length - 1);
 
-                // Propulsion Cannon: (324.6, -104.8, 441.8): UnityEngine.Transform, UnityEngine.Rigidbody, PrefabIdentifier, Pickupable, LargeWorldEntity, WorldForces, VFXSurface, EntityTag, EcoTarget, ResourceTracker, SkyApplier, 
-
-                //[HarmonyPostfix]
-                //public static void RemoveFragment(ResourceTracker __instance)
-                //{
                 msg += component_name;
 
                 if (component_name == "ResourceTracker")
@@ -214,10 +214,7 @@ namespace Archipelago
                 }
 
                 msg += ", ";
-            } // Wreck8_BloodKelp_PDA1(Clone) (StoryHandTarget)
-
-            //ErrorMessage.AddMessage("(" + gameObject.name + "):" + msg);
-            //Debug.Log("INSPECT GAME OBJECT: " + msg);
+            }
 
             return msg;
         }
@@ -246,7 +243,7 @@ namespace Archipelago
 
                 foreach (var item_json in json)
                 {
-                    ITEM_CODE_TO_TECHTYPE[(int)item_json.GetField("id").i] = 
+                    ITEM_CODE_TO_TECHTYPE[(int)item_json.GetField("id").i] =
                         (TechType)Enum.Parse(typeof(TechType), item_json.GetField("tech_type").str);
                 }
             }
@@ -296,6 +293,16 @@ namespace Archipelago
                     {
                         connected_data = packet as ConnectedPacket;
                         updatePlayerList(connected_data.Players);
+
+                        Debug.Log("CONNECTED DATA: ");
+                        foreach (var missing_check in connected_data.MissingChecks)
+                        {
+                            Debug.Log("  MISSING CHECK: " + missing_check.ToString());
+                        }
+                        foreach (var item_checked in connected_data.ItemsChecked)
+                        {
+                            Debug.Log("  ITEM CHECKED: " + item_checked.ToString());
+                        }
                         break;
                     }
                 case ArchipelagoPacketType.ReceivedItems:
@@ -411,80 +418,26 @@ namespace Archipelago
             return false;
         }
 
-        // That's the big function.
         public static void unlock(TechType techType)
         {
             if (PDAScanner.IsFragment(techType))
             {
-                PDAScanner.EntryData entryData = PDAScanner.GetEntryData(techType);
-
-                PDAScanner.Entry entry;
-                if (!PDAScanner.GetPartialEntryByKey(techType, out entry))
+                // We fake a scan action (This will also stop any in-progress scan, oh well)
+                PDAScanner.scanTarget.progress = 1.0f;
+                PDAScanner.scanTarget.techType = techType;
+                PDAScanner.scanTarget.uid = null;
+                PDAScanner.scanTarget.gameObject = null;
+                if (PDAScanner.Scan() == PDAScanner.Result.None)
                 {
-                    var add_method = typeof(PDAScanner).GetMethod("Add", BindingFlags.NonPublic | BindingFlags.Static);
-                    entry = (PDAScanner.Entry)add_method.Invoke(null, new object[] { techType, 0 });
-                }
-
-                bool unlockBlueprint = false;
-                bool unlockEncyclopedia = false;
-                if (entry != null)
-                {
-                    unlockEncyclopedia = true;
-                    entry.unlocked++;
-                    if (entry.unlocked >= entryData.totalFragments)
-                    {
-                        unlockBlueprint = true;
-
-                        var partial = (List<PDAScanner.Entry>)typeof(PDAScanner).GetField("partial", BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.Static).GetValue(null);
-
-                        var complete = (HashSet<TechType>)typeof(PDAScanner).GetField("complete", BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.Static).GetValue(null);
-
-                        partial.Remove(entry);
-                        complete.Add(entry.techType);
-
-                        var NotifyRemove_method = typeof(PDAScanner).GetMethod("NotifyRemove", BindingFlags.NonPublic | BindingFlags.Static);
-                        NotifyRemove_method.Invoke(null, new object[] { entry });
-                    }
-                    else
-                    {
-                        int totalFragments = entryData.totalFragments;
-                        if (totalFragments > 1)
-                        {
-                            float arg = (float)Mathf.RoundToInt((float)entry.unlocked / (float)totalFragments * 100f);
-                            ErrorMessage.AddError(Language.main.GetFormat<string, float, int, int>("ScannerInstanceScanned", Language.main.Get(techType.AsString(false)), arg, entry.unlocked, totalFragments));
-                        }
-
-                        var NotifyProgress_method = typeof(PDAScanner).GetMethod("NotifyProgress", BindingFlags.NonPublic | BindingFlags.Static);
-                        NotifyProgress_method.Invoke(null, new object[] { entry });
-
-                        FMODUWE.PlayOneShot("event:/loot/pickup_default", MainCamera.camera.transform.position, 1.5f); // A bit lounder
-                    }
-                }
-
-                ResourceTracker.UpdateFragments();
-                if (unlockBlueprint || unlockEncyclopedia)
-                {
-                    var Unlock_method = typeof(PDAScanner).GetMethod("Unlock", BindingFlags.NonPublic | BindingFlags.Static);
-                    Unlock_method.Invoke(null, new object[] { entryData, unlockBlueprint, unlockEncyclopedia, true });
+                    // Sometimes this fails, dunno why.
+                    // Push back this unlock for next frame.
+                    APState.unlock_queue.Add(techType);
                 }
             }
             else
             {
                 // Blueprint
                 KnownTech.Add(techType, true);
-
-                //var NotifyAdd_method = typeof(KnownTech).GetMethod("NotifyAdd", BindingFlags.NonPublic | BindingFlags.Static);
-                //NotifyAdd_method.Invoke(null, new object[] { techType, true });
-
-                //PDAScanner.CompleteAllEntriesWhichUnlocks(techType);
-
-                //var NotifyChanged_method = typeof(KnownTech).GetMethod("NotifyChanged", BindingFlags.NonPublic | BindingFlags.Static);
-                //NotifyChanged_method.Invoke(null, new object[] { });
-
-                //var UnlockCompoundTech_method = typeof(KnownTech).GetMethod("UnlockCompoundTech", BindingFlags.NonPublic | BindingFlags.Static);
-                //UnlockCompoundTech_method.Invoke(null, new object[] { true });
-
-                //KnownTech.Analyze(techType, true);
             }
         }
     }
@@ -518,23 +471,23 @@ namespace Archipelago
             TechType.SolarPanelFragment,
             TechType.PowerTransmitterFragment,
             TechType.BaseUpgradeConsoleFragment,
-            //TechType.BaseObservatoryFragment, // Cosmetic only, leave it in the world
-            //TechType.BaseWaterParkFragment, // Cosmetic only, leave it in the world
+            TechType.BaseObservatoryFragment,
+            TechType.BaseWaterParkFragment,
             TechType.RadioFragment,
-            //TechType.BaseRoomFragment, //TODO: Add later
-            //TechType.BaseBulkheadFragment, // Cosmetic only, leave it in the world
+            TechType.BaseRoomFragment,
+            TechType.BaseBulkheadFragment,
             TechType.BatteryChargerFragment,
             TechType.PowerCellChargerFragment,
             TechType.ScannerRoomFragment,
             TechType.SpecimenAnalyzerFragment,
-            //TechType.FarmingTrayFragment, //TODO: Add later - unlocks farming
-            //TechType.SignFragment,
-            //TechType.PictureFrameFragment,
-            //TechType.BenchFragment,
-            //TechType.PlanterPotFragment, //TODO: Add later - unlocks farming
-            //TechType.PlanterBoxFragment, //TODO: Add later - unlocks farming
-            //TechType.PlanterShelfFragment, //TODO: Add later - unlocks farming
-            //TechType.AquariumFragment, // Cosmetic only, leave it in the world
+            TechType.FarmingTrayFragment,
+            TechType.SignFragment,
+            TechType.PictureFrameFragment,
+            TechType.BenchFragment,
+            TechType.PlanterPotFragment,
+            TechType.PlanterBoxFragment,
+            TechType.PlanterShelfFragment,
+            TechType.AquariumFragment,
             TechType.ReinforcedDiveSuitFragment,
             TechType.RadiationSuitFragment,
             TechType.StillsuitFragment,
@@ -580,6 +533,62 @@ namespace Archipelago
             {
                 UnityEngine.Object.Destroy(__instance.gameObject);
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(Targeting))]
+    [HarmonyPatch("GetRoot")]
+    internal class Targeting_GetRoot_Patch
+    {
+        public static List<TechType> tech_fragments_to_ignore = new List<TechType>
+        {
+            TechType.BaseRoom,
+            TechType.FarmingTray,
+            TechType.BaseBulkhead,
+            TechType.BasePlanter,
+            TechType.Spotlight,
+            TechType.BaseObservatory,
+            TechType.PlanterBox,
+            TechType.BaseWaterPark,
+            TechType.StarshipDesk,
+            TechType.StarshipChair,
+            TechType.StarshipChair3,
+            TechType.LabCounter,
+            TechType.NarrowBed,
+            TechType.Bed1,
+            TechType.Bed2,
+            TechType.CoffeeVendingMachine,
+            TechType.Trashcans,
+            TechType.Techlight,
+            TechType.BarTable,
+            TechType.VendingMachine,
+            TechType.SingleWallShelf,
+            TechType.WallShelves,
+            TechType.Bench,
+            TechType.PlanterPot,
+            TechType.PlanterShelf,
+            TechType.PlanterPot2,
+            TechType.PlanterPot3,
+            TechType.LabTrashcan,
+            TechType.BasePlanter
+        };
+
+        [HarmonyPrefix]
+        public static bool MakeUnscanable(GameObject candidate, out TechType techType, out GameObject gameObject)
+        {
+            techType = TechType.None;
+            gameObject = null;
+
+            var tech_tag = candidate.GetComponent<TechTag>();
+            if (tech_tag != null)
+            {
+                if (tech_tag.type == TechType.BaseRoom)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 
@@ -722,11 +731,12 @@ namespace Archipelago
         {
             if (APState.is_in_game)
             {
-                foreach (var unlock in APState.unlock_queue)
+                var to_process = new List<TechType>(APState.unlock_queue);
+                APState.unlock_queue.Clear();
+                foreach (var unlock in to_process)
                 {
                     APState.unlock(unlock);
                 }
-                APState.unlock_queue.Clear();
             }
         }
     }
@@ -762,6 +772,8 @@ namespace Archipelago
             var active_target = __instance.GetActiveTarget();
             if (active_target)
                 ArchipelagoUI.mouse_target_desc = APState.InspectGameObject(active_target.gameObject);
+            else if (PDAScanner.scanTarget.gameObject)
+                ArchipelagoUI.mouse_target_desc = APState.InspectGameObject(PDAScanner.scanTarget.gameObject);
             else
                 ArchipelagoUI.mouse_target_desc = "";
         }
@@ -777,6 +789,14 @@ namespace Archipelago
         public static void ExplodeShip(EscapePod __instance)
         {
             DevConsole.SendConsoleCommand("explodeship");
+        }
+
+        [HarmonyPostfix]
+        public static void SyncProgress(EscapePod __instance)
+        {
+            // It's a new game, make sure we have everything that's been unlocked already
+            SyncPacket sync_packet = new SyncPacket();
+            APState.session.SendPacket(sync_packet);
         }
     }
 }
