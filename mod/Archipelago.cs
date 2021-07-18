@@ -536,9 +536,9 @@ namespace Archipelago
         }
     }
 
-    [HarmonyPatch(typeof(Targeting))]
-    [HarmonyPatch("GetRoot")]
-    internal class Targeting_GetRoot_Patch
+    [HarmonyPatch(typeof(PDAScanner))]
+    [HarmonyPatch("UpdateTarget")]
+    internal class PDAScanner_UpdateTarget_Patch
     {
         public static List<TechType> tech_fragments_to_ignore = new List<TechType>
         {
@@ -573,22 +573,20 @@ namespace Archipelago
             TechType.BasePlanter
         };
 
-        [HarmonyPrefix]
-        public static bool MakeUnscanable(GameObject candidate, out TechType techType, out GameObject gameObject)
+        [HarmonyPostfix]
+        public static void MakeUnscanable()
         {
-            techType = TechType.None;
-            gameObject = null;
-
-            var tech_tag = candidate.GetComponent<TechTag>();
-            if (tech_tag != null)
+            if (PDAScanner.scanTarget.gameObject)
             {
-                if (tech_tag.type == TechType.BaseRoom)
+                var tech_tag = PDAScanner.scanTarget.gameObject.GetComponent<TechTag>();
+                if (tech_tag != null)
                 {
-                    return false;
+                    if (tech_fragments_to_ignore.Contains(tech_tag.type))
+                    {
+                        PDAScanner.scanTarget.Invalidate();
+                    }
                 }
             }
-
-            return true;
         }
     }
 
