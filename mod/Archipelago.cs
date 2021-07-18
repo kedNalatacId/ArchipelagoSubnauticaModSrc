@@ -3,17 +3,16 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Text;
 using UnityEngine;
-using System.Threading;
-using System.Threading.Tasks;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
 
+// Enforcement Platform button: (362.0, -70.3, 1082.3)
+
 namespace Archipelago
 {
-    // Comment this out for real game! Cheats for testing out stuff
+#if DEBUG // Extra cheat
     //[HarmonyPatch(typeof(Player))]
     //[HarmonyPatch("Update")]
     //internal class Player_Update_Patch
@@ -25,9 +24,16 @@ namespace Archipelago
     //        Player.main.liveMixin.ResetHealth();
     //    }
     //}
+#endif
 
     public class ArchipelagoUI : MonoBehaviour
     {
+#if DEBUG
+        public static string mouse_target_desc = "";
+        private bool show_warps = false;
+        private bool show_items = false;
+        private float copied_fade = 0.0f;
+
         public static Dictionary<string, Vector3> WRECKS = new Dictionary<string, Vector3>
         {
             { "Blood Kelp Trench 1", new Vector3(-1201, -324, -396) },
@@ -54,64 +60,108 @@ namespace Archipelago
             { "Sparse Reef", new Vector3(-787, -208, -713) },
             { "Underwater Islands", new Vector3(-102, -179, 860) }
         };
+#endif
+
+#if DEBUG
+        void Update()
+        {
+            if (mouse_target_desc != "")
+            {
+                if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.C))
+                {
+                    Debug.Log("INSPECT GAME OBJECT: " + mouse_target_desc);
+                    string id = mouse_target_desc.Split(new char[] { ':' })[0];
+                    GUIUtility.systemCopyBuffer = id;
+                    copied_fade = 1.0f;
+                }
+            }
+
+            copied_fade -= Time.deltaTime;
+        }
+#endif
 
         void OnGUI()
         {
+#if DEBUG
+            GUI.Box(new Rect(0, 0, Screen.width, 120), "");
+#endif
+
             if (APState.session != null && APState.session.Connected)
             {
-                GUI.Label(new Rect(16, 16, 300, 25), "Archipelago Status: Connected");
+                GUI.Label(new Rect(16, 16, 300, 20), "Archipelago Status: Connected");
             }
             else
             {
-                GUI.Label(new Rect(16, 16, 300, 25), "Archipelago Status: Not Connected");
+                GUI.Label(new Rect(16, 16, 300, 20), "Archipelago Status: Not Connected");
             }
+
+#if DEBUG
+            GUI.Label(new Rect(16, 16 + 20, Screen.width - 32, 50), ((copied_fade > 0.0f) ? "Copied!" : "Target: ") + mouse_target_desc);
 
             if (APState.is_in_game)
             {
-                if (GUI.Button(new Rect(16, 50, 150, 25), "Activate Cheats"))
+                if (GUI.Button(new Rect(16, 16 + 25 + 8 + 25 + 8, 150, 25), "Activate Cheats"))
                 {
                     DevConsole.SendConsoleCommand("nodamage");
                     DevConsole.SendConsoleCommand("oxygen");
                     DevConsole.SendConsoleCommand("item seaglide");
                     DevConsole.SendConsoleCommand("item battery 10");
+                    DevConsole.SendConsoleCommand("fog");
                     DevConsole.SendConsoleCommand("speed 3");
                 }
-
-                int i = 0;
-                int j = 100;
-                foreach (var kv in WRECKS)
+                if (GUI.Button(new Rect(16 + 150 + 8, 16 + 25 + 8 + 25 + 8, 150, 25), "Warp to Locations"))
                 {
-                    if (GUI.Button(new Rect(16 + i, j, 200, 25), kv.Key.ToString()))
+                    show_warps = !show_warps;
+                    if (show_warps) show_items = false;
+                }
+                if (GUI.Button(new Rect(16 + 150 + 8 + 150 + 8, 16 + 25 + 8 + 25 + 8, 150, 25), "Items"))
+                {
+                    show_items = !show_items;
+                    if (show_items) show_warps = false;
+                }
+
+                if (show_warps)
+                {
+                    int i = 0;
+                    int j = 125;
+                    foreach (var kv in WRECKS)
                     {
-                        string target = ((int)kv.Value.x).ToString() + " " +
-                                        ((int)kv.Value.y).ToString() + " " +
-                                        ((int)kv.Value.z + 50).ToString();
-                        DevConsole.SendConsoleCommand("warp " + target);
-                    }
-                    j += 30;
-                    if (j + 30 >= Screen.height)
-                    {
-                        j = 100;
-                        i += 200 + 16;
+                        if (GUI.Button(new Rect(16 + i, j, 200, 25), kv.Key.ToString()))
+                        {
+                            string target = ((int)kv.Value.x).ToString() + " " +
+                                            ((int)kv.Value.y).ToString() + " " +
+                                            ((int)kv.Value.z + 50).ToString();
+                            DevConsole.SendConsoleCommand("warp " + target);
+                        }
+                        j += 30;
+                        if (j + 30 >= Screen.height)
+                        {
+                            j = 125;
+                            i += 200 + 16;
+                        }
                     }
                 }
 
-                //int i = 0;
-                //int j = 100;
-                //foreach (var kv in APState.ITEM_CODE_TO_TECHTYPE)
-                //{
-                //    if (GUI.Button(new Rect(16 + i, j, 200, 25), kv.Value.ToString()))
-                //    {
-                //        APState.unlock(kv.Value);
-                //    }
-                //    j += 30;
-                //    if (j + 30 >= Screen.height)
-                //    {
-                //        j = 100;
-                //        i += 200 + 16;
-                //    }
-                //}
+                if (show_items)
+                {
+                    int i = 0;
+                    int j = 125;
+                    foreach (var kv in APState.ITEM_CODE_TO_TECHTYPE)
+                    {
+                        if (GUI.Button(new Rect(16 + i, j, 200, 25), kv.Value.ToString()))
+                        {
+                            APState.unlock(kv.Value);
+                        }
+                        j += 30;
+                        if (j + 30 >= Screen.height)
+                        {
+                            j = 125;
+                            i += 200 + 16;
+                        }
+                    }
+                }
             }
+#endif
         }
     }
 
@@ -121,118 +171,8 @@ namespace Archipelago
         public static string player_name;
         public static string password;
 
-        public static Dictionary<int, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<int, TechType>
-        {
-            {35000, TechType.Compass },
-            {35001, TechType.PlasteelTank },
-            {35002, TechType.BaseUpgradeConsole },
-            {35003, TechType.UltraGlideFins },
-            {35004, TechType.CyclopsSonarModule },
-            {35005, TechType.ReinforcedDiveSuit },
-            {35006, TechType.CyclopsThermalReactorModule },
-            {35007, TechType.Stillsuit },
-            {35008, TechType.BaseWaterPark },
-            {35009, TechType.CyclopsDecoy },
-            {35010, TechType.CyclopsFireSuppressionModule },
-            {35011, TechType.SwimChargeFins },
-            {35012, TechType.RepulsionCannon },
-            {35013, TechType.CyclopsDecoyModule },
-            {35014, TechType.CyclopsShieldModule },
-            {35015, TechType.CyclopsHullModule1 },
-            {35016, TechType.CyclopsSeamothRepairModule },
-            {35017, TechType.BatteryCharger },
-            {35018, TechType.Beacon },
-            {35019, TechType.BaseBioReactor },
-            {35020, TechType.CyclopsBridgeBlueprint },
-            {35021, TechType.CyclopsEngineBlueprint },
-            {35022, TechType.CyclopsHullBlueprint },
-            {35023, TechType.GravSphereFragment },
-            {35024, TechType.GravSphereFragment },
-            {35025, TechType.LaserCutter },
-            {35026, TechType.TechlightFragment },
-            {35027, TechType.ConstructorFragment },
-            {35028, TechType.ConstructorFragment },
-            {35029, TechType.ConstructorFragment },
-            {35030, TechType.WorkbenchFragment },
-            {35031, TechType.WorkbenchFragment },
-            {35032, TechType.WorkbenchFragment },
-            {35033, TechType.MoonpoolFragment },
-            {35034, TechType.MoonpoolFragment },
-            {35035, TechType.BaseNuclearReactor },
-            {35036, TechType.PowerCellCharger },
-            {35037, TechType.PowerTransmitterFragment },
-            {35038, TechType.Exosuit },
-            {35039, TechType.ExosuitClawArmModule }, // This is by default, replace!
-            {35040, TechType.ExosuitDrillArmModule },
-            {35041, TechType.ExosuitGrapplingArmModule },
-            {35042, TechType.ExosuitPropulsionArmModule },
-            {35043, TechType.ExosuitTorpedoArmModule },
-            {35044, TechType.ScannerRoomBlueprint }, //
-            {35045, TechType.SeamothFragment },
-            {35046, TechType.SeamothFragment },
-            {35047, TechType.SeamothFragment },
-            {35048, TechType.StasisRifleFragment },
-            {35049, TechType.StasisRifleFragment },
-            {35050, TechType.ThermalPlantFragment },
-            {35051, TechType.ThermalPlantFragment }
-        };
-
-        public static Dictionary<int, string> LOCATION_ADDRESS_TO_CHECK_ID = new Dictionary<int, string>
-        {
-            { 33000, "(-1234.3, -349.7, -396.0)" },
-            { 33001, "(-1208.0, -349.6, -383.0)" },
-            { 33002, "(1327.1, -234.9, 575.8)" },
-            { 33003, "(910.9, -201.8, 623.5)" },
-            { 33004, "(903.8, -220.3, 590.9)" },
-            { 33005, "(914.9, -202.1, 611.8)" },
-            { 33006, "(-635.1, -502.7, -951.4)" },
-            { 33007, "(-643.8, -509.9, -941.9)" },
-            { 33008, "(-765.7, 17.6, -1116.4)" },
-            { 33009, "(110.6, -264.9, -369.0)" },
-            { 33010, "(-1393.9, -329.7, 733.5)" },
-            { 33011, "(-1407.7, -344.2, 721.5)" },
-            { 33012, "(-1196.3, -223.0, 12.5)" },
-            { 33013, "(-1206.4, -225.6, 4.0)" },
-            { 33014, "(-1626.2, -357.5, 99.5)" },
-            { 33015, "(-850.9, -473.2, -1414.6)" },
-            { 33016, "(-1407.7, -344.2, 721.5)" },
-            { 33017, "(-862.4, -437.5, -1444.1)" },
-            { 33018, "(-269.7, -262.8, -764.3)" },
-            { 33019, "(-285.2, -262.4, -788.4)" },
-            { 33020, "(-285.8, -240.2, -786.5)" },
-            { 33021, "(-889.4, -433.8, -1424.8)" },
-            { 33022, "(-23.3, -105.8, -604.2)" },
-            { 33023, "(319.4, -104.3, 441.5)" },
-            { 33024, "(313.9, -91.8, 432.6)" },
-            { 33025, "(-421.4, -107.8, -266.5)" },
-            { 33026, "(-317.6, -78.8, 247.4)" },
-            { 33027, "(-483.6, -504.7, 1326.6)" },
-            { 33028, "(-34.2, -22.4, 410.5)" },
-            { 33029, "(712.4, -3.4, 160.8)" },
-            { 33030, "(358.7, -117.1, 306.8)" },
-            { 33031, "(1119.5, -271.7, 561.7)" },
-            { 33032, "(-926.4, -185.2, 501.8)" },
-            { 33033, "(-809.8, -302.2, -876.9)" },
-            { 33034, "(1068.5, -283.4, 1345.3)" },
-            { 33035, "(1075.7, -288.9, 1321.8)" },
-            { 33036, "(676.3, -343.6, 1204.6)" },
-            { 33037, "(740.3, -389.2, 1179.8)" },
-            { 33038, "(698.2, -350.8, 1186.9)" },
-            { 33039, "(-655.1, -109.6, 791.0)" },
-            { 33040, "(-663.4, -111.9, 777.9)" },
-            { 33041, "(-1115.9, -175.3, -724.5)" },
-            { 33042, "(-1161.1, -191.7, -758.3)" },
-            { 33043, "(-1129.5, -155.2, -729.3)" },
-            { 33044, "(-795.5, -204.1, -774.7)" },
-            { 33045, "(-810.7, -209.3, -685.5)" },
-            { 33046, "(-789.8, -216.1, -711.0)" },
-            { 33047, "(-126.8, -201.1, 852.1)" },
-            { 33048, "(-138.4, -193.6, 888.7)" },
-            { 33049, "(-137.8, -193.4, 879.4)" },
-            { 33050, "(-124.4, -200.7, 853.0)" },
-            { 33051, "(-170.8, -187.6, 880.7)" }
-        };
-        public static Dictionary<string, int> LOCATION_CHECK_ID_TO_ADDRESS = new Dictionary<string, int>();
+        public static Dictionary<int, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<int, TechType>();
+        public static Dictionary<string, int> LOCATION_ADDRESS_TO_CHECK_ID = new Dictionary<string, int>();
 
         public static RoomInfoPacket room_info = null;
         public static DataPackagePacket data_package = null;
@@ -247,27 +187,44 @@ namespace Archipelago
 
         public static ArchipelagoSession session;
 
-        public static void InspectGameObject(GameObject gameObject)
+#if DEBUG
+        public static string InspectGameObject(GameObject gameObject)
         {
             string msg = gameObject.transform.position.ToString().Trim() + ": ";
 
             Component[] components = gameObject.GetComponents(typeof(Component));
             for (int i = 0; i < components.Length; i++)
             {
-                msg += components[i].ToString() + ",";
-            }
+                var component = components[i];
+                var component_name = components[i].ToString().Split('(').GetLast();
+                component_name = component_name.Substring(0, component_name.Length - 1);
 
-            ErrorMessage.AddMessage("GameObject:" + msg);
-            Debug.Log("INSPECT GAME OBJECT: " + msg);
+                // Propulsion Cannon: (324.6, -104.8, 441.8): UnityEngine.Transform, UnityEngine.Rigidbody, PrefabIdentifier, Pickupable, LargeWorldEntity, WorldForces, VFXSurface, EntityTag, EcoTarget, ResourceTracker, SkyApplier, 
+
+                //[HarmonyPostfix]
+                //public static void RemoveFragment(ResourceTracker __instance)
+                //{
+                msg += component_name;
+
+                if (component_name == "ResourceTracker")
+                {
+                    var techTypeMember = typeof(ResourceTracker).GetField("techType", BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.Instance);
+                    var techType = (TechType)techTypeMember.GetValue(component);
+                    msg += $"({techType.ToString()},{((ResourceTracker)component).overrideTechType.ToString()})";
+                }
+
+                msg += ", ";
+            } // Wreck8_BloodKelp_PDA1(Clone) (StoryHandTarget)
+
+            //ErrorMessage.AddMessage("(" + gameObject.name + "):" + msg);
+            //Debug.Log("INSPECT GAME OBJECT: " + msg);
+
+            return msg;
         }
+#endif
 
         static public void Init()
         {
-            foreach (var kv in LOCATION_ADDRESS_TO_CHECK_ID)
-            {
-                LOCATION_CHECK_ID_TO_ADDRESS[kv.Value] = kv.Key;
-            }
-
             // Load connect info
             {
                 var reader = File.OpenText("QMods/Archipelago/connect_info.json");
@@ -278,6 +235,34 @@ namespace Archipelago
                 host = json.GetField("host").str;
                 password = json.GetField("password").str;
                 player_name = json.GetField("player_name").str;
+            }
+
+            // Load items.json
+            {
+                var reader = File.OpenText("QMods/Archipelago/items.json");
+                var content = reader.ReadToEnd();
+                var json = new JSONObject(content);
+                reader.Close();
+
+                foreach (var item_json in json)
+                {
+                    ITEM_CODE_TO_TECHTYPE[(int)item_json.GetField("id").i] = 
+                        (TechType)Enum.Parse(typeof(TechType), item_json.GetField("tech_type").str);
+                }
+            }
+
+            // Load locations.json
+            {
+                var reader = File.OpenText("QMods/Archipelago/locations.json");
+                var content = reader.ReadToEnd();
+                var json = new JSONObject(content);
+                reader.Close();
+
+                foreach (var location_json in json)
+                {
+                    LOCATION_ADDRESS_TO_CHECK_ID[location_json.GetField("game_id").str] =
+                        (int)location_json.GetField("id").i;
+                }
             }
         }
 
@@ -413,36 +398,22 @@ namespace Archipelago
             }
         }
 
+        public static bool checkLocation(string game_id)
+        {
+            if (APState.LOCATION_ADDRESS_TO_CHECK_ID.ContainsKey(game_id))
+            {
+                var location_id = APState.LOCATION_ADDRESS_TO_CHECK_ID[game_id];
+                var location_packet = new LocationChecksPacket();
+                location_packet.Locations = new List<int> { location_id };
+                APState.session.SendPacket(location_packet);
+                return true;
+            }
+            return false;
+        }
+
+        // That's the big function.
         public static void unlock(TechType techType)
         {
-            //Debug.Log("EntryData: " +
-            //                            entryData.key.ToString() + ", " +
-            //                            entryData.locked.ToString() + ", " +
-            //                            entryData.totalFragments.ToString() + ", " +
-            //                            entryData.destroyAfterScan.ToString() + ", " +
-            //                            entryData.encyclopedia.ToString() + ", " +
-            //                            entryData.blueprint.ToString() + ", " +
-            //                            entryData.scanTime.ToString() + ", " +
-            //                            entryData.isFragment.ToString());
-
-            //EntryData: ConstructorFragment, True, 3, True, MVB, Constructor, 2, True
-            //EntryData: MoonpoolFragment, False, 2, True, Moonpool, BaseMoonpool, 3, True
-            //EntryData: PowerTransmitterFragment, False, 1, True, , PowerTransmitter, 2, True
-            //EntryData: SeamothFragment, False, 3, True, Seamoth, Seamoth, 4, True
-            //EntryData: StasisRifleFragment, False, 2, True, StasisRifle, StasisRifle, 4, True
-            //EntryData: TechlightFragment, False, 1, False, Techlight, Techlight, 3, True
-            //EntryData: ThermalPlantFragment, False, 2, True, ThermalPlant, ThermalPlant, 4, True
-            //EntryData: WorkbenchFragment, False, 3, True, ModificationStation, Workbench, 3, True
-            //EntryData: LaserCutter, False, 1, False, LaserCutter, None, 4, False
-            //EntryData: CyclopsShieldModule, False, 1, False, , CyclopsShieldModule, 1, False
-            //EntryData: CyclopsSonarModule, False, 1, False, , CyclopsSonarModule, 1, False
-            //EntryData: CyclopsHullModule1, False, 1, False, , CyclopsHullModule1, 1, False
-            //EntryData: CyclopsDecoyModule, False, 1, False, , CyclopsDecoyModule, 1, False
-            //EntryData: CyclopsFireSuppressionModule, False, 1, False, , CyclopsFireSuppressionModule, 1, False
-            //EntryData: GravSphereFragment, False, 2, True, , Gravsphere, 3, True
-            //EntryData: BaseWaterPark, False, 1, False, , BaseWaterPark, 1, False
-
-
             if (PDAScanner.IsFragment(techType))
             {
                 PDAScanner.EntryData entryData = PDAScanner.GetEntryData(techType);
@@ -542,7 +513,7 @@ namespace Archipelago
             TechType.CyclopsBridgeFragment,
             TechType.CyclopsEngineFragment,
             TechType.CyclopsDockingBayFragment,
-            //TechType.SeaglideFragment, //TODO Add later
+            TechType.SeaglideFragment,
             TechType.ConstructorFragment,
             TechType.SolarPanelFragment,
             TechType.PowerTransmitterFragment,
@@ -589,13 +560,25 @@ namespace Archipelago
         public static void RemoveFragment(ResourceTracker __instance)
         {
             var techTypeMember = typeof(ResourceTracker).GetField("techType", BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.Instance);
-            if ((TechType)techTypeMember.GetValue(__instance) == TechType.Fragment)
+            var techType = (TechType)techTypeMember.GetValue(__instance);
+            if (techType == TechType.Fragment)
             {
                 var techTag = __instance.GetComponent<TechTag>();
-                if (techTag != null && tech_fragments_to_destroy.Contains(techTag.type))
+                if (techTag != null)
                 {
-                    UnityEngine.Object.Destroy(__instance.gameObject);
+                    if (tech_fragments_to_destroy.Contains(techTag.type))
+                    {
+                        UnityEngine.Object.Destroy(__instance.gameObject);
+                    }
                 }
+                else
+                {
+                    UnityEngine.Object.Destroy(__instance.gameObject); // No techtag, so it's just "fragment", remove it...
+                }
+            }
+            else if (tech_fragments_to_destroy.Contains(techType)) // Not fragment, but could be one of the others
+            {
+                UnityEngine.Object.Destroy(__instance.gameObject);
             }
         }
     }
@@ -643,16 +626,66 @@ namespace Archipelago
     internal class BlueprintHandTarget_UnlockBlueprint_Patch
     {
         [HarmonyPrefix]
-        public static bool OpenDatabox(BlueprintHandTarget __instance)
+        public static void OpenDatabox(BlueprintHandTarget __instance)
         {
             if (!__instance.used)
             {
                 var databox_id = __instance.gameObject.transform.position.ToString().Trim();
-                var location_id = APState.LOCATION_CHECK_ID_TO_ADDRESS[databox_id];
+                APState.checkLocation(databox_id);
+            }
+        }
+    }
 
-                var location_packet = new LocationChecksPacket();
-                location_packet.Locations = new List<int> { location_id };
-                APState.session.SendPacket(location_packet);
+    // Once PDA clicked, send it to Archipelago.
+    [HarmonyPatch(typeof(StoryHandTarget))]
+    [HarmonyPatch("OnHandClick")]
+    internal class StoryHandTarget_OnHandClick_Patch
+    {
+        [HarmonyPrefix]
+        public static bool PickupPDA(StoryHandTarget __instance)
+        {
+            var pda_id = __instance.gameObject.transform.position.ToString().Trim();
+            if (APState.checkLocation(pda_id))
+            {
+                var generic_console = __instance.gameObject.GetComponent<GenericConsole>();
+                if (generic_console != null)
+                {
+                    // Change it's color
+                    generic_console.gotUsed = true;
+
+                    var UpdateState_method = typeof(GenericConsole).GetMethod("UpdateState", BindingFlags.NonPublic | BindingFlags.Instance);
+                    UpdateState_method.Invoke(generic_console, new object[] {});
+
+                    return false; // Don't let the item in the console be given. (Like neptune blueprint)
+                }
+            }
+            return true;
+        }
+    }
+
+    // There are 3 pickupable modules in the game
+    [HarmonyPatch(typeof(Pickupable))]
+    [HarmonyPatch("OnHandClick")]
+    internal class Pickupable_OnHandClick_Patch
+    {
+        [HarmonyPrefix]
+        public static bool PickModule(Pickupable __instance)
+        {
+            var pickup_id = __instance.gameObject.transform.position.ToString().Trim();
+            if (APState.checkLocation(pickup_id))
+            {
+                var tech_tag = __instance.gameObject.GetComponent<TechTag>();
+                if (tech_tag != null)
+                {
+                    if (tech_tag.type == TechType.VehicleHullModule1 ||
+                        tech_tag.type == TechType.VehicleStorageModule ||
+                        tech_tag.type == TechType.PowerUpgradeModule)
+                    {
+                        // Don't let the module in the console be given
+                        UnityEngine.Object.Destroy(__instance.gameObject);
+                        return false;
+                    }
+                }
             }
             return true;
         }
@@ -718,14 +751,32 @@ namespace Archipelago
         }
     }
 
-    [HarmonyPatch(typeof(GenericHandTarget))]
-    [HarmonyPatch("OnHandClick")]
-    internal class GenericHandTarget_OnHandHover_Patch
+#if DEBUG
+    [HarmonyPatch(typeof(GUIHand))]
+    [HarmonyPatch("OnUpdate")]
+    internal class GUIHand_OnUpdate_Patch
     {
-        [HarmonyPrefix]
-        public static void OnHandClick(GenericHandTarget __instance)
+        [HarmonyPostfix]
+        public static void OnUpdate(GUIHand __instance)
         {
-            APState.InspectGameObject(__instance.gameObject);
+            var active_target = __instance.GetActiveTarget();
+            if (active_target)
+                ArchipelagoUI.mouse_target_desc = APState.InspectGameObject(active_target.gameObject);
+            else
+                ArchipelagoUI.mouse_target_desc = "";
+        }
+    }
+#endif
+
+    // Ship start already exploded
+    [HarmonyPatch(typeof(EscapePod))]
+    [HarmonyPatch("StopIntroCinematic")]
+    internal class EscapePod_StopIntroCinematic_Patch
+    {
+        [HarmonyPostfix]
+        public static void ExplodeShip(EscapePod __instance)
+        {
+            DevConsole.SendConsoleCommand("explodeship");
         }
     }
 }
