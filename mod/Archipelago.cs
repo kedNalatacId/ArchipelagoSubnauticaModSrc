@@ -95,6 +95,37 @@ namespace Archipelago
             }
 
 #if DEBUG
+            if (APState.session == null)
+            {
+                // Start the archipelago session.
+                APState.session = new ArchipelagoSession("ws://" + APState.host);
+                APState.session.PacketReceived += APState.Session_PacketReceived;
+                APState.session.ErrorReceived += APState.Session_ErrorReceived;
+                APState.session.Connect();
+            }
+#else
+            if (APState.session == null)
+            {
+                GUI.Label(new Rect(16, 36, 150, 20), "Host: ");
+                GUI.Label(new Rect(16, 56, 150, 20), "Password: ");
+                GUI.Label(new Rect(16, 76, 150, 20), "PlayerName: ");
+
+                APState.host = GUI.TextField(new Rect(150 + 16 + 8, 36, 150, 20), APState.host);
+                APState.password = GUI.TextField(new Rect(150 + 16 + 8, 56, 150, 20), APState.password);
+                APState.player_name = GUI.TextField(new Rect(150 + 16 + 8, 76, 150, 20), APState.player_name);
+
+                if (GUI.Button(new Rect(16, 96, 100, 20), "Connect"))
+                {
+                    // Start the archipelago session.
+                    APState.session = new ArchipelagoSession("ws://" + APState.host);
+                    APState.session.PacketReceived += APState.Session_PacketReceived;
+                    APState.session.ErrorReceived += APState.Session_ErrorReceived;
+                    APState.session.Connect();
+                }
+            }
+#endif
+
+#if DEBUG
             GUI.Label(new Rect(16, 16 + 20, Screen.width - 32, 50), ((copied_fade > 0.0f) ? "Copied!" : "Target: ") + mouse_target_desc);
 
             if (APState.is_in_game)
@@ -149,7 +180,7 @@ namespace Archipelago
                     {
                         if (GUI.Button(new Rect(16 + i, j, 200, 25), kv.Value.ToString()))
                         {
-                            APState.unlock(kv.Value);
+                            APState.unlock_queue.Add(kv.Value);
                         }
                         j += 30;
                         if (j + 30 >= Screen.height)
@@ -222,6 +253,7 @@ namespace Archipelago
 
         static public void Init()
         {
+#if DEBUG
             // Load connect info
             {
                 var reader = File.OpenText("QMods/Archipelago/connect_info.json");
@@ -233,6 +265,7 @@ namespace Archipelago
                 password = json.GetField("password").str;
                 player_name = json.GetField("player_name").str;
             }
+#endif
 
             // Load items.json
             {
@@ -423,15 +456,57 @@ namespace Archipelago
             if (PDAScanner.IsFragment(techType))
             {
                 // We fake a scan action (This will also stop any in-progress scan, oh well)
-                PDAScanner.scanTarget.progress = 1.0f;
-                PDAScanner.scanTarget.techType = techType;
-                PDAScanner.scanTarget.uid = null;
-                PDAScanner.scanTarget.gameObject = null;
-                if (PDAScanner.Scan() == PDAScanner.Result.None)
+                //PDAScanner.scanTarget.progress = 1.0f;
+                //PDAScanner.scanTarget.techType = techType;
+                //PDAScanner.scanTarget.uid = null;
+                //PDAScanner.scanTarget.gameObject = null;
+                //if (PDAScanner.Scan() == PDAScanner.Result.None)
+                //{
+                //    // Sometimes this fails, dunno why.
+                //    // Push back this unlock for next frame.
+                //    APState.unlock_queue.Add(techType);
+                //}
+
+
+                PDAScanner.EntryData entryData = PDAScanner.GetEntryData(techType);
+
+                PDAScanner.Entry entry;
+                if (!PDAScanner.GetPartialEntryByKey(techType, out entry))
                 {
-                    // Sometimes this fails, dunno why.
-                    // Push back this unlock for next frame.
-                    APState.unlock_queue.Add(techType);
+                    MethodInfo methodAdd = typeof(PDAScanner).GetMethod("Add", BindingFlags.NonPublic | BindingFlags.Static, null, new Type[] { typeof(TechType), typeof(int) }, null);
+                    entry = (PDAScanner.Entry)methodAdd.Invoke(null, new object[] { techType, 0 });
+                }
+
+                if (entry != null)
+                {
+                    entry.unlocked++;
+
+                    if (entry.unlocked >= entryData.totalFragments)
+                    {
+                        List<PDAScanner.Entry> partial = (List<PDAScanner.Entry>)(typeof(PDAScanner).GetField("partial", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null));
+                        HashSet<TechType> complete = (HashSet<TechType>)(typeof(PDAScanner).GetField("complete", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null));
+                        partial.Remove(entry);
+                        complete.Add(entry.techType);
+
+                        MethodInfo methodNotifyRemove = typeof(PDAScanner).GetMethod("NotifyRemove", BindingFlags.NonPublic | BindingFlags.Static, null, new Type[] { typeof(PDAScanner.Entry) }, null);
+                        methodNotifyRemove.Invoke(null, new object[] { entry });
+
+                        MethodInfo methodUnlock = typeof(PDAScanner).GetMethod("Unlock", BindingFlags.NonPublic | BindingFlags.Static, null, new Type[] { typeof(PDAScanner.EntryData), typeof(bool), typeof(bool), typeof(bool) }, null);
+                        methodUnlock.Invoke(null, new object[] { entryData, true, false, true });
+                    }
+                    else
+                    {
+                        int totalFragments = entryData.totalFragments;
+                        if (totalFragments > 1)
+                        {
+                            float num2 = (float)entry.unlocked / (float)totalFragments;
+                            float arg = (float)Mathf.RoundToInt(num2 * 100f);
+                            ErrorMessage.AddError(Language.main.GetFormat<string, float, int, int>("ScannerInstanceScanned", Language.main.Get(entry.techType.AsString(false)), arg, entry.unlocked, totalFragments));
+                        }
+
+                        MethodInfo methodNotifyProgress = typeof(PDAScanner).GetMethod("NotifyProgress", BindingFlags.NonPublic | BindingFlags.Static, null, new Type[] { typeof(PDAScanner.Entry) }, null);
+                        methodNotifyProgress.Invoke(null, new object[] { entry });
+                    }
                 }
             }
             else
@@ -570,7 +645,8 @@ namespace Archipelago
             TechType.PlanterPot2,
             TechType.PlanterPot3,
             TechType.LabTrashcan,
-            TechType.BasePlanter
+            TechType.BasePlanter,
+            TechType.ExosuitClawArmFragment
         };
 
         [HarmonyPostfix]
@@ -661,7 +737,7 @@ namespace Archipelago
                     generic_console.gotUsed = true;
 
                     var UpdateState_method = typeof(GenericConsole).GetMethod("UpdateState", BindingFlags.NonPublic | BindingFlags.Instance);
-                    UpdateState_method.Invoke(generic_console, new object[] {});
+                    UpdateState_method.Invoke(generic_console, new object[] { });
 
                     return false; // Don't let the item in the console be given. (Like neptune blueprint)
                 }
@@ -750,12 +826,6 @@ namespace Archipelago
             var gui_gameobject = new GameObject();
             gui_gameobject.AddComponent<ArchipelagoUI>();
             GameObject.DontDestroyOnLoad(gui_gameobject);
-
-            // Start the archipelago session. (This will freeze the game)
-            APState.session = new ArchipelagoSession("ws://" + APState.host);
-            APState.session.PacketReceived += APState.Session_PacketReceived;
-            APState.session.ErrorReceived += APState.Session_ErrorReceived;
-            APState.session.Connect();
         }
     }
 
@@ -795,6 +865,76 @@ namespace Archipelago
             // It's a new game, make sure we have everything that's been unlocked already
             SyncPacket sync_packet = new SyncPacket();
             APState.session.SendPacket(sync_packet);
+        }
+    }
+
+    // Advance rocket stage, but don't add to known tech the next stage! We'll find them in the world
+    [HarmonyPatch(typeof(Rocket))]
+    [HarmonyPatch("AdvanceRocketStage")]
+    internal class Rocket_AdvanceRocketStage_Patch
+    {
+        [HarmonyPrefix]
+        static public bool AdvanceRocketStage(Rocket __instance)
+        {
+            __instance.currentRocketStage++;
+            if (__instance.currentRocketStage == 5)
+            {
+                var isFinishedMember = typeof(Rocket).GetField("isFinished", BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.Instance);
+                isFinishedMember.SetValue(__instance, true);
+
+                var IsAnyRocketReadyMember = typeof(Rocket).GetProperty("IsAnyRocketReady", BindingFlags.Static);
+                IsAnyRocketReadyMember.SetValue(null, true);
+            }
+            //KnownTech.Add(__instance.GetCurrentStageTech(), true); // This is the part we don't want
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(RocketConstructor))]
+    [HarmonyPatch("StartRocketConstruction")]
+    internal class RocketConstructor_StartRocketConstruction_Patch
+    {
+        [HarmonyPrefix]
+        static public bool StartRocketConstruction(RocketConstructor __instance)
+        {
+            TechType currentStageTech = __instance.rocket.GetCurrentStageTech();
+            if (!KnownTech.Contains(currentStageTech))
+            {
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    // Prevent aurora explosion story event to give a radiationsuit...
+    [HarmonyPatch(typeof(Story.UnlockBlueprintData))]
+    [HarmonyPatch("Trigger")]
+    internal class UnlockBlueprintData_Trigger_Patch
+    {
+        [HarmonyPrefix]
+        static public bool PreventRadiationSuitUnlock(Story.UnlockBlueprintData __instance)
+        {
+            if (__instance.techType == TechType.RadiationSuit)
+            {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    // When launching the rocket, send goal achieved to archipelago
+    [HarmonyPatch(typeof(LaunchRocket))]
+    [HarmonyPatch("SetLaunchStarted")]
+    internal class LaunchRocket_SetLaunchStarted_Patch
+    {
+        [HarmonyPrefix]
+        static public void SetLaunchStarted()
+        {
+            var status_update_packet = new StatusUpdatePacket();
+            status_update_packet.Status = ArchipelagoClientState.ClientGoal;
+            APState.session.SendPacket(status_update_packet);
         }
     }
 }
