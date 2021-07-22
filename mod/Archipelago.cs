@@ -714,6 +714,20 @@ namespace Archipelago
             if (!__instance.used)
             {
                 var databox_id = __instance.gameObject.transform.position.ToString().Trim();
+
+                // Special case for Kelp Forest DataBox wreck, it seems to move from game to game!
+                // By more than 1m. Compare with epsilon, it's the only data box in that area.
+                if (__instance.gameObject.transform.position.x > -317.1f - 10f &&
+                    __instance.gameObject.transform.position.x < -317.1f + 10f &&
+                    __instance.gameObject.transform.position.y > -79.0f - 10f &&
+                    __instance.gameObject.transform.position.y < -79.0f + 10f &&
+                    __instance.gameObject.transform.position.z > 248.5 - 10f &&
+                    __instance.gameObject.transform.position.z < 248.5 + 10f)
+                {
+                    databox_id = "(-317.1, -79.0, 248.5)";
+                }
+
+                // -317.1, -79.0, 248.5
                 APState.checkLocation(databox_id);
             }
         }
