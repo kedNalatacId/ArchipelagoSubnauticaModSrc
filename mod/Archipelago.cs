@@ -12,20 +12,6 @@ using Archipelago.MultiClient.Net.Packets;
 
 namespace Archipelago
 {
-#if DEBUG // Extra cheat
-    //[HarmonyPatch(typeof(Player))]
-    //[HarmonyPatch("Update")]
-    //internal class Player_Update_Patch
-    //{
-    //    [HarmonyPostfix]
-    //    public static void Cheats()
-    //    {
-    //        Player.main.oxygenMgr.AddOxygen(500.0f);
-    //        Player.main.liveMixin.ResetHealth();
-    //    }
-    //}
-#endif
-
     public class ArchipelagoUI : MonoBehaviour
     {
 #if DEBUG
@@ -94,16 +80,6 @@ namespace Archipelago
                 GUI.Label(new Rect(16, 16, 300, 20), "Archipelago Status: Not Connected");
             }
 
-#if DEBUG
-            if (APState.session == null)
-            {
-                // Start the archipelago session.
-                APState.session = new ArchipelagoSession("ws://" + APState.host);
-                APState.session.PacketReceived += APState.Session_PacketReceived;
-                APState.session.ErrorReceived += APState.Session_ErrorReceived;
-                APState.session.Connect();
-            }
-#else
             if (APState.session == null)
             {
                 GUI.Label(new Rect(16, 36, 150, 20), "Host: ");
@@ -117,13 +93,22 @@ namespace Archipelago
                 if (GUI.Button(new Rect(16, 96, 100, 20), "Connect"))
                 {
                     // Start the archipelago session.
-                    APState.session = new ArchipelagoSession("ws://" + APState.host);
+                    // Start the archipelago session.
+                    var url = APState.host;
+                    if (!url.Contains(":"))
+                    {
+                        url += ":38281";
+                    }
+                    if (!url.Contains("ws://"))
+                    {
+                        url = "ws://" + url;
+                    }
+                    APState.session = new ArchipelagoSession(url);
                     APState.session.PacketReceived += APState.Session_PacketReceived;
                     APState.session.ErrorReceived += APState.Session_ErrorReceived;
                     APState.session.Connect();
                 }
             }
-#endif
 
 #if DEBUG
             GUI.Label(new Rect(16, 16 + 20, Screen.width - 32, 50), ((copied_fade > 0.0f) ? "Copied!" : "Target: ") + mouse_target_desc);
@@ -193,6 +178,32 @@ namespace Archipelago
             }
 #endif
         }
+
+        private void Start()
+        {
+            DevConsole.RegisterConsoleCommand(this, "say", false, false);
+        }
+
+        private void OnConsoleCommand_say(NotificationCenter.Notification n)
+        {
+            var text = "";
+
+            for (var i = 0; i < n.data.Count; i++)
+            {
+                text += (string)n.data[i];
+                if (i < n.data.Count - 1) text += " ";
+            }
+
+            // Cannot type the '!' character in subnautica console, will use / instead and replace them
+            text = text.Replace('/', '!');
+
+            if (APState.session != null)
+            {
+                var packet = new SayPacket();
+                packet.Text = text;
+                APState.session.SendPacket(packet);
+            }
+        }
     }
 
     public static class APState
@@ -253,20 +264,6 @@ namespace Archipelago
 
         static public void Init()
         {
-#if DEBUG
-            // Load connect info
-            {
-                var reader = File.OpenText("QMods/Archipelago/connect_info.json");
-                var content = reader.ReadToEnd();
-                var json = new JSONObject(content);
-                reader.Close();
-
-                host = json.GetField("host").str;
-                password = json.GetField("password").str;
-                player_name = json.GetField("player_name").str;
-            }
-#endif
-
             // Load items.json
             {
                 var reader = File.OpenText("QMods/Archipelago/items.json");
@@ -300,6 +297,11 @@ namespace Archipelago
         {
             Debug.LogError(message);
             if (e != null) Debug.LogError(e.ToString());
+            if (session != null)
+            {
+                session.Disconnect();
+                session = null;
+            }
         }
 
         public static void Session_PacketReceived(ArchipelagoPacketBase packet)
@@ -343,9 +345,7 @@ namespace Archipelago
                         var p = packet as ReceivedItemsPacket;
                         foreach (var item in p.Items)
                         {
-                            if (connected_data.ItemsChecked.Contains(item.Item)) continue; // We already have it
-                            connected_data.ItemsChecked.Add(item.Item);
-                            connected_data.MissingChecks.Remove(item.Item);
+                            Debug.Log("ReceivedItem: " + item.Item.ToString());
 
                             var techType = ITEM_CODE_TO_TECHTYPE[item.Item];
                             unlock_queue.Add(techType);
