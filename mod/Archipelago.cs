@@ -7,6 +7,7 @@ using UnityEngine;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
+using System.Text;
 
 // Enforcement Platform button: (362.0, -70.3, 1082.3)
 
@@ -208,13 +209,14 @@ namespace Archipelago
 
     public static class APState
     {
-        public static string host;
-        public static string player_name;
+        public static string host = "45.83.104.96:56604";
+        public static string player_name = "Berserker";
         public static string password;
 
         public static Dictionary<int, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<int, TechType>();
         public static Dictionary<string, int> LOCATION_ADDRESS_TO_CHECK_ID = new Dictionary<string, int>();
 
+        public static Dictionary<string, int> archipelago_indexes = new Dictionary<string, int>();
         public static RoomInfoPacket room_info = null;
         public static DataPackagePacket data_package = null;
         public static ConnectedPacket connected_data = null;
@@ -225,6 +227,7 @@ namespace Archipelago
         };
         public static List<TechType> unlock_queue = new List<TechType>();
         public static bool is_in_game = false;
+        public static int next_item_index = 0;
 
         public static ArchipelagoSession session;
 
@@ -306,6 +309,7 @@ namespace Archipelago
 
         public static void Session_PacketReceived(ArchipelagoPacketBase packet)
         {
+            Debug.Log("Incoming Packet: " + packet.PacketType.ToString());
             switch (packet.PacketType)
             {
                 case ArchipelagoPacketType.RoomInfo:
@@ -328,16 +332,6 @@ namespace Archipelago
                     {
                         connected_data = packet as ConnectedPacket;
                         updatePlayerList(connected_data.Players);
-
-                        Debug.Log("CONNECTED DATA: ");
-                        foreach (var missing_check in connected_data.MissingChecks)
-                        {
-                            Debug.Log("  MISSING CHECK: " + missing_check.ToString());
-                        }
-                        foreach (var item_checked in connected_data.ItemsChecked)
-                        {
-                            Debug.Log("  ITEM CHECKED: " + item_checked.ToString());
-                        }
                         break;
                     }
                 case ArchipelagoPacketType.ReceivedItems:
@@ -810,14 +804,115 @@ namespace Archipelago
         }
     }
 
+    [HarmonyPatch(typeof(SaveLoadManager))]
+    [HarmonyPatch("RegisterSaveGame")]
+    internal class SaveLoadManager_RegisterSaveGame_Patch
+    {
+        [HarmonyPrefix]
+        public static void RegisterSaveGame(string slotName, UserStorageUtils.LoadOperation loadOperation)
+        {
+            if (loadOperation.GetSuccessful())
+            {
+                byte[] jsonData = null;
+                if (loadOperation.files.TryGetValue("gameinfo.json", out jsonData))
+                {
+                    try
+                    {
+                        var json_string = Encoding.UTF8.GetString(jsonData);
+                        var splits = json_string.Split(new char[] { ',' });
+                        var last = splits[splits.Length - 1];
+                        splits = last.Split(new char[] { ':' });
+                        var name = splits[0];
+                        name = name.Substring(1, name.Length - 2);
+                        splits = splits[1].Split(new char[] { '}' });
+                        var value = splits[0];
+
+                        if (name == "archipelago_item_index")
+                        {
+                            var index = int.Parse(value);
+                            APState.archipelago_indexes[slotName] = index;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.Log("archipelago_item_index error: " + e.Message);
+                    }
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(SaveLoadManager.GameInfo))]
+    [HarmonyPatch("SaveIntoCurrentSlot")]
+    internal class GameInfo_SaveIntoCurrentSlot_Patch
+    {
+        [HarmonyPrefix]
+        public static bool SaveIntoCurrentSlot(SaveLoadManager.GameInfo info)
+        {
+            var SaveFile_method = typeof(SaveLoadManager.GameInfo).GetMethod("SaveFile", BindingFlags.NonPublic | BindingFlags.Static);
+            using (MemoryStream memoryStream = new MemoryStream())
+            {
+                string value = JsonUtility.ToJson(info);
+
+                // Hax0rz
+                value = value.Insert(value.Length - 1, ",\"archipelago_item_index\":" + APState.next_item_index.ToString());
+
+                using (StreamWriter streamWriter = new StreamWriter(memoryStream, Encoding.UTF8))
+                {
+                    streamWriter.WriteLine(value);
+                }
+                SaveFile_method.Invoke(null, new object[] { "gameinfo.json", memoryStream.ToArray() });
+            }
+            using (MemoryStream memoryStream2 = new MemoryStream())
+            {
+                var screenshot_member = typeof(SaveLoadManager.GameInfo).GetField("screenshot", BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.GetField | BindingFlags.Instance);
+
+                Texture2D texture2D = (Texture2D)screenshot_member.GetValue(info);
+                if (texture2D != null)
+                {
+                    var thumbnail = MathExtensions.ScaleTexture(texture2D, 200, false, false);
+                    screenshot_member.SetValue(info, thumbnail);
+                    byte[] array = thumbnail.EncodeToJPG(75);
+                    if (array.Length != 0)
+                    {
+                        memoryStream2.Write(array, 0, array.Length);
+                        SaveFile_method.Invoke(null, new object[] { "screenshot.jpg", memoryStream2.ToArray() });
+                    }
+                    UnityEngine.Object.Destroy(texture2D);
+                }
+            }
+            return false;
+        }
+    }
+
     [HarmonyPatch(typeof(MainGameController))]
     [HarmonyPatch("Update")]
     internal class MainGameController_Update_Patch
     {
+        static private bool IsSafeToUnlock()
+        {
+            if (!APState.is_in_game)
+            {
+                return false;
+            }
+
+            if (IntroVignette.isIntroActive || LaunchRocket.isLaunching)
+            {
+                return false;
+            }
+
+            if (PlayerCinematicController.cinematicModeCount > 0 && Time.time - PlayerCinematicController.cinematicActivityStart <= 30f)
+            {
+                return false;
+            }
+
+            return !SaveLoadManager.main.isSaving;
+        }
+
         [HarmonyPostfix]
         public static void DequeueUnlocks()
         {
-            if (APState.is_in_game)
+            if (IsSafeToUnlock())
             {
                 var to_process = new List<TechType>(APState.unlock_queue);
                 APState.unlock_queue.Clear();
