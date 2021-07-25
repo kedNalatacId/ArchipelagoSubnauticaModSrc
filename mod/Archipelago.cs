@@ -328,7 +328,7 @@ namespace Archipelago
 
         public static void Session_PacketReceived(ArchipelagoPacketBase packet)
         {
-            ErrorMessage.AddError("Incoming Packet: " + packet.PacketType.ToString());
+            //ErrorMessage.AddError("Incoming Packet: " + packet.PacketType.ToString());
             Debug.Log("Incoming Packet: " + packet.PacketType.ToString());
             switch (packet.PacketType)
             {
@@ -363,7 +363,7 @@ namespace Archipelago
                         }
 
                         var p = packet as ReceivedItemsPacket;
-                        ErrorMessage.AddError("next_item_index: " + next_item_index.ToString() + ", Index: " + p.Index.ToString() + ", items: " + p.Items.Count.ToString());
+                        //ErrorMessage.AddError("next_item_index: " + next_item_index.ToString() + ", Index: " + p.Index.ToString() + ", items: " + p.Items.Count.ToString());
                         Debug.Log("next_item_index: " + next_item_index.ToString() + ", Index: " + p.Index.ToString() + ", items: " + p.Items.Count.ToString());
 
                         if (state == State.AwaitingSync)
