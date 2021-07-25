@@ -114,7 +114,7 @@ namespace Archipelago
 #if DEBUG
             GUI.Label(new Rect(16, 16 + 20, Screen.width - 32, 50), ((copied_fade > 0.0f) ? "Copied!" : "Target: ") + mouse_target_desc);
 
-            if (APState.is_in_game)
+            if (APState.state == APState.State.InGame)
             {
                 if (GUI.Button(new Rect(16, 16 + 25 + 8 + 25 + 8, 150, 25), "Activate Cheats"))
                 {
@@ -215,6 +215,13 @@ namespace Archipelago
             public Vector3 position;
         }
 
+        public enum State
+        {
+            Menu,
+            AwaitingSync,
+            InGame
+        }
+
         public static string host = "";
         public static string player_name = "";
         public static string password = "";
@@ -232,7 +239,7 @@ namespace Archipelago
             { 0, "Archipelago" }
         };
         public static List<TechType> unlock_queue = new List<TechType>();
-        public static bool is_in_game = false;
+        public static State state = State.Menu;
         public static int next_item_index = 0;
 
         public static ArchipelagoSession session;
@@ -321,6 +328,7 @@ namespace Archipelago
 
         public static void Session_PacketReceived(ArchipelagoPacketBase packet)
         {
+            ErrorMessage.AddError("Incoming Packet: " + packet.PacketType.ToString());
             Debug.Log("Incoming Packet: " + packet.PacketType.ToString());
             switch (packet.PacketType)
             {
@@ -348,14 +356,42 @@ namespace Archipelago
                     }
                 case ArchipelagoPacketType.ReceivedItems:
                     {
+                        if (state == State.Menu)
+                        {
+                            // Ignore, we will do a sync when the game starts
+                            break;
+                        }
+
                         var p = packet as ReceivedItemsPacket;
+                        ErrorMessage.AddError("next_item_index: " + next_item_index.ToString() + ", Index: " + p.Index.ToString() + ", items: " + p.Items.Count.ToString());
+                        Debug.Log("next_item_index: " + next_item_index.ToString() + ", Index: " + p.Index.ToString() + ", items: " + p.Items.Count.ToString());
+
+                        if (state == State.AwaitingSync)
+                        {
+                            if (next_item_index > 0)
+                            {
+                                // Make sure to not unlock stuff we've already unlocked
+                                p.Items.RemoveRange(0, next_item_index);
+                            }
+                            state = State.InGame;
+                        }
+                        else if (next_item_index < p.Index)
+                        {
+                            ErrorMessage.AddError("Out of sync with server, resynchronizing");
+                            // Resync, we're out of sync!
+                            var sync_packet = new SyncPacket();
+                            session.SendPacket(sync_packet);
+                            state = State.AwaitingSync;
+                            break;
+                        }
+
                         foreach (var item in p.Items)
                         {
-                            Debug.Log("ReceivedItem: " + item.Item.ToString());
-
-                            var techType = ITEM_CODE_TO_TECHTYPE[item.Item];
-                            unlock_queue.Add(techType);
+                            unlock_queue.Add(ITEM_CODE_TO_TECHTYPE[item.Item]);
                         }
+
+                        next_item_index += p.Items.Count;
+
                         break;
                     }
                 case ArchipelagoPacketType.LocationInfo:
@@ -783,7 +819,25 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void GameReady()
         {
-            APState.is_in_game = true;
+            APState.state = APState.State.AwaitingSync;
+
+            // Make sure we have everything that's been unlocked already
+            SyncPacket sync_packet = new SyncPacket();
+            APState.session.SendPacket(sync_packet);
+        }
+    }
+
+    [HarmonyPatch(typeof(SaveLoadManager))]
+    [HarmonyPatch("SetCurrentSlot")]
+    internal class SaveLoadManager_SetCurrentSlot_Patch
+    {
+        [HarmonyPostfix]
+        public static void SetCurrentItemIndex(string _currentSlot)
+        {
+            if (APState.archipelago_indexes.ContainsKey(_currentSlot))
+            {
+                APState.next_item_index = APState.archipelago_indexes[_currentSlot];
+            }
         }
     }
 
@@ -794,7 +848,7 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void GameClosing()
         {
-            APState.is_in_game = false;
+            APState.state = APState.State.Menu;
         }
     }
 
@@ -885,7 +939,7 @@ namespace Archipelago
     {
         static private bool IsSafeToUnlock()
         {
-            if (!APState.is_in_game)
+            if (APState.state != APState.State.InGame)
             {
                 return false;
             }
@@ -957,17 +1011,9 @@ namespace Archipelago
     internal class EscapePod_StopIntroCinematic_Patch
     {
         [HarmonyPostfix]
-        public static void ExplodeShip(EscapePod __instance)
+        public static void GameReady(EscapePod __instance)
         {
             DevConsole.SendConsoleCommand("explodeship");
-        }
-
-        [HarmonyPostfix]
-        public static void SyncProgress(EscapePod __instance)
-        {
-            // It's a new game, make sure we have everything that's been unlocked already
-            SyncPacket sync_packet = new SyncPacket();
-            APState.session.SendPacket(sync_packet);
         }
     }
 
