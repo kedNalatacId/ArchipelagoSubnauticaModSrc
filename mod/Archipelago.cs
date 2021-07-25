@@ -114,7 +114,7 @@ namespace Archipelago
 #if DEBUG
             GUI.Label(new Rect(16, 16 + 20, Screen.width - 32, 50), ((copied_fade > 0.0f) ? "Copied!" : "Target: ") + mouse_target_desc);
 
-            if (APState.state == APState.State.InGame)
+            if (APState.state != APState.State.Menu)
             {
                 if (GUI.Button(new Rect(16, 16 + 25 + 8 + 25 + 8, 150, 25), "Activate Cheats"))
                 {
@@ -687,7 +687,8 @@ namespace Archipelago
             TechType.PlanterPot3,
             TechType.LabTrashcan,
             TechType.BasePlanter,
-            TechType.ExosuitClawArmFragment
+            TechType.ExosuitClawArmFragment,
+            TechType.BaseFiltrationMachine
         };
 
         [HarmonyPostfix]
@@ -1008,6 +1009,17 @@ namespace Archipelago
         }
     }
 #endif
+
+    //[HarmonyPatch(typeof(LeakingRadiation))]
+    //[HarmonyPatch("Start")]
+    //internal class LeakingRadiation_StopIntroCinematic_Patch
+    //{
+    //    [HarmonyPostfix]
+    //    public static void PrintRad(LeakingRadiation __instance)
+    //    {
+    //        ErrorMessage.AddError("Radiation max: " + __instance.kMaxRadius + " at " + __instance.gameObject.transform.position.ToString());
+    //    }
+    //}
 
     // Ship start already exploded
     [HarmonyPatch(typeof(EscapePod))]
