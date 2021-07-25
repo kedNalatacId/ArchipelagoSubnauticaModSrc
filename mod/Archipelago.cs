@@ -209,12 +209,18 @@ namespace Archipelago
 
     public static class APState
     {
-        public static string host = "45.83.104.96:56604";
-        public static string player_name = "Berserker";
-        public static string password;
+        public struct Location
+        {
+            public int id;
+            public Vector3 position;
+        }
+
+        public static string host = "";
+        public static string player_name = "";
+        public static string password = "";
 
         public static Dictionary<int, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<int, TechType>();
-        public static Dictionary<string, int> LOCATION_ADDRESS_TO_CHECK_ID = new Dictionary<string, int>();
+        public static List<Location> LOCATIONS = new List<Location>();
 
         public static Dictionary<string, int> archipelago_indexes = new Dictionary<string, int>();
         public static RoomInfoPacket room_info = null;
@@ -290,8 +296,14 @@ namespace Archipelago
 
                 foreach (var location_json in json)
                 {
-                    LOCATION_ADDRESS_TO_CHECK_ID[location_json.GetField("game_id").str] =
-                        (int)location_json.GetField("id").i;
+                    Location location = new Location();
+                    location.id = (int)location_json.GetField("id").i;
+                    location.position = new Vector3(
+                        location_json.GetField("position").GetField("x").f,
+                        location_json.GetField("position").GetField("y").f,
+                        location_json.GetField("position").GetField("z").f
+                    );
+                    LOCATIONS.Add(location);
                 }
             }
         }
@@ -432,16 +444,28 @@ namespace Archipelago
             }
         }
 
-        public static bool checkLocation(string game_id)
+        public static bool checkLocation(Vector3 position)
         {
-            if (APState.LOCATION_ADDRESS_TO_CHECK_ID.ContainsKey(game_id))
+            int closest_id = -1;
+            float closest_dist = 100000.0f;
+            foreach (var location in LOCATIONS)
             {
-                var location_id = APState.LOCATION_ADDRESS_TO_CHECK_ID[game_id];
+                var dist = Vector3.Distance(location.position, position);
+                if (dist < closest_dist && dist < 10.0f) // More than 10m, ignore. Can't have errors that big... can we?
+                {
+                    closest_dist = dist;
+                    closest_id = location.id;
+                }
+            }
+
+            if (closest_id != -1)
+            {
                 var location_packet = new LocationChecksPacket();
-                location_packet.Locations = new List<int> { location_id };
+                location_packet.Locations = new List<int> { closest_id };
                 APState.session.SendPacket(location_packet);
                 return true;
             }
+
             return false;
         }
 
@@ -449,19 +473,6 @@ namespace Archipelago
         {
             if (PDAScanner.IsFragment(techType))
             {
-                // We fake a scan action (This will also stop any in-progress scan, oh well)
-                //PDAScanner.scanTarget.progress = 1.0f;
-                //PDAScanner.scanTarget.techType = techType;
-                //PDAScanner.scanTarget.uid = null;
-                //PDAScanner.scanTarget.gameObject = null;
-                //if (PDAScanner.Scan() == PDAScanner.Result.None)
-                //{
-                //    // Sometimes this fails, dunno why.
-                //    // Push back this unlock for next frame.
-                //    APState.unlock_queue.Add(techType);
-                //}
-
-
                 PDAScanner.EntryData entryData = PDAScanner.GetEntryData(techType);
 
                 PDAScanner.Entry entry;
@@ -707,22 +718,7 @@ namespace Archipelago
         {
             if (!__instance.used)
             {
-                var databox_id = __instance.gameObject.transform.position.ToString().Trim();
-
-                // Special case for Kelp Forest DataBox wreck, it seems to move from game to game!
-                // By more than 1m. Compare with epsilon, it's the only data box in that area.
-                if (__instance.gameObject.transform.position.x > -317.1f - 10f &&
-                    __instance.gameObject.transform.position.x < -317.1f + 10f &&
-                    __instance.gameObject.transform.position.y > -79.0f - 10f &&
-                    __instance.gameObject.transform.position.y < -79.0f + 10f &&
-                    __instance.gameObject.transform.position.z > 248.5 - 10f &&
-                    __instance.gameObject.transform.position.z < 248.5 + 10f)
-                {
-                    databox_id = "(-317.1, -79.0, 248.5)";
-                }
-
-                // -317.1, -79.0, 248.5
-                APState.checkLocation(databox_id);
+                APState.checkLocation(__instance.gameObject.transform.position);
             }
         }
     }
@@ -735,8 +731,7 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool PickupPDA(StoryHandTarget __instance)
         {
-            var pda_id = __instance.gameObject.transform.position.ToString().Trim();
-            if (APState.checkLocation(pda_id))
+            if (APState.checkLocation(__instance.gameObject.transform.position))
             {
                 var generic_console = __instance.gameObject.GetComponent<GenericConsole>();
                 if (generic_console != null)
@@ -762,8 +757,7 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool PickModule(Pickupable __instance)
         {
-            var pickup_id = __instance.gameObject.transform.position.ToString().Trim();
-            if (APState.checkLocation(pickup_id))
+            if (APState.checkLocation(__instance.gameObject.transform.position))
             {
                 var tech_tag = __instance.gameObject.GetComponent<TechTag>();
                 if (tech_tag != null)
