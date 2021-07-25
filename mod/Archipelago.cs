@@ -81,7 +81,7 @@ namespace Archipelago
                 GUI.Label(new Rect(16, 16, 300, 20), "Archipelago Status: Not Connected");
             }
 
-            if (APState.session == null)
+            if (APState.session == null && APState.state == APState.State.Menu)
             {
                 GUI.Label(new Rect(16, 36, 150, 20), "Host: ");
                 GUI.Label(new Rect(16, 56, 150, 20), "Password: ");
@@ -1018,6 +1018,7 @@ namespace Archipelago
         public static void GameReady(EscapePod __instance)
         {
             DevConsole.SendConsoleCommand("explodeship");
+            APState.next_item_index = 0; // New game detected
         }
     }
 
