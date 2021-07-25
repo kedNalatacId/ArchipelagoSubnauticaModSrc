@@ -838,6 +838,10 @@ namespace Archipelago
             {
                 APState.next_item_index = APState.archipelago_indexes[_currentSlot];
             }
+            else
+            {
+                APState.next_item_index = 0;
+            }
         }
     }
 
