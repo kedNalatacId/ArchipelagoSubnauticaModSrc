@@ -349,13 +349,18 @@ namespace Archipelago
                         foreach (string err in p.Errors)
                         {
                             Debug.LogError(err);
+                            ErrorMessage.AddMessage(err);
                         }
+                        state = State.Menu;
+                        session.Disconnect();
+                        session = null;
                         break;
                     }
                 case ArchipelagoPacketType.Connected:
                     {
                         connected_data = packet as ConnectedPacket;
                         updatePlayerList(connected_data.Players);
+                        ErrorMessage.AddMessage("Succesfully authenticated.");
                         break;
                     }
                 case ArchipelagoPacketType.ReceivedItems:
@@ -407,7 +412,10 @@ namespace Archipelago
                 case ArchipelagoPacketType.RoomUpdate:
                     {
                         var p = packet as RoomUpdatePacket;
-                        // Hint points? Dont care
+                        if (p.Players != null)
+                        {
+                            updatePlayerList(p.Players);
+                        }
                         break;
                     }
                 case ArchipelagoPacketType.Print:
@@ -505,7 +513,7 @@ namespace Archipelago
 
             foreach (var player in players)
             {
-                player_names_by_id[player.Slot] = player.Name;
+                player_names_by_id[player.Slot] = player.Alias;
             }
         }
 
