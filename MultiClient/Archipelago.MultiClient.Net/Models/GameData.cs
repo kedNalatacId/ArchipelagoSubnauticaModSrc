@@ -6,13 +6,15 @@ using System.Text;
 
 namespace Archipelago.MultiClient.Net.Models
 {
-    public class DataPackage
+    public class GameData
     {
+        [JsonProperty("location_name_to_id")]
+        public Dictionary<string, int> LocationLookup { get; set; }
+
+        [JsonProperty("item_name_to_id")]
+        public Dictionary<string, int> ItemLookup { get; set; }
 
         [JsonProperty("version")]
         public int Version { get; set; }
-
-        [JsonProperty("games")]
-        public Dictionary<string, GameData> Games { get; set; }
     }
 }

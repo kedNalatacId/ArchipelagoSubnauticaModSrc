@@ -7,6 +7,7 @@ using UnityEngine;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
+using Archipelago.MultiClient.Net.Models;
 using System.Text;
 
 // Enforcement Platform button: (362.0, -70.3, 1082.3)
@@ -231,7 +232,8 @@ namespace Archipelago
 
         public static Dictionary<string, int> archipelago_indexes = new Dictionary<string, int>();
         public static RoomInfoPacket room_info = null;
-        public static DataPackagePacket data_package = null;
+        public static Dictionary<int, string> lookup_any_item = new Dictionary<int, string>();
+        public static Dictionary<int, string> lookup_any_location = new Dictionary<int, string>();
         public static ConnectedPacket connected_data = null;
         public static LocationInfoPacket location_infos = null;
         public static Dictionary<int, string> player_names_by_id = new Dictionary<int, string>
@@ -336,7 +338,9 @@ namespace Archipelago
                     {
                         room_info = packet as RoomInfoPacket;
                         updatePlayerList(room_info.Players);
-                        session.SendPacket(new GetDataPackagePacket());
+                        GetDataPackagePacket request = new GetDataPackagePacket();
+                        request.Exclusions = new List<string>();
+                        session.SendPacket(request);
                         break;
                     }
                 case ArchipelagoPacketType.ConnectionRefused:
@@ -429,13 +433,27 @@ namespace Archipelago
                                 case "item_id":
                                     {
                                         int item_id = int.Parse(part.Text);
-                                        text += data_package.DataPackage.ItemLookup[item_id];
+                                        if (lookup_any_item.ContainsKey(item_id))
+                                        {
+                                            text += lookup_any_item[item_id];
+                                        }
+                                        else
+                                        {
+                                            text += $"Unknown Item {item_id}";
+                                        }
                                         break;
                                     }
                                 case "location_id":
                                     {
                                         int location_id = int.Parse(part.Text);
-                                        text += data_package.DataPackage.LocationLookup[location_id];
+                                        if (lookup_any_location.ContainsKey(location_id))
+                                        {
+                                            text += lookup_any_location[location_id];
+                                        }
+                                        else
+                                        {
+                                            text += $"Unknown Location {location_id}";
+                                        }
                                         break;
                                     }
                                 default:
@@ -450,15 +468,26 @@ namespace Archipelago
                     }
                 case ArchipelagoPacketType.DataPackage:
                     {
-                        data_package = packet as DataPackagePacket;
 
+                        DataPackagePacket data_package = packet as DataPackagePacket;
+                        foreach (GameData game_data in data_package.DataPackage.Games.Values)
+                        {
+                            foreach (KeyValuePair<string, int> items in game_data.ItemLookup)
+                            {
+                                lookup_any_item[items.Value] = items.Key;
+                            }
+                            foreach (KeyValuePair<string, int> items in game_data.LocationLookup)
+                            {
+                                lookup_any_location[items.Value] = items.Key;
+                            }
+                        }
                         var connect_packet = new ConnectPacket();
 
                         connect_packet.Game = "Subnautica";
                         connect_packet.Name = player_name;
                         connect_packet.Uuid = Convert.ToString(player_name.GetHashCode(), 16);
-                        connect_packet.Version = new Version(0, 1, 0);
-                        connect_packet.Tags = new List<string> { "AP" };
+                        connect_packet.Version = new Version(0, 1, 9);
+                        connect_packet.Tags = new List<string> {};
                         connect_packet.Password = password;
 
                         APState.session.SendPacket(connect_packet);

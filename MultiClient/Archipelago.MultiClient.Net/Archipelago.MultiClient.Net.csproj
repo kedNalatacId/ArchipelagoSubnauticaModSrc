@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net472</TargetFrameworks>
-    <AssemblyTitle>MultiClient.Net</AssemblyTitle>
-    <Product>MultiClient.Net</Product>
+    <TargetFrameworks>net35</TargetFrameworks>
+    <AssemblyTitle>Archipelago.MultiClient.Net</AssemblyTitle>
+    <Product>Archipelago.MultiClient.Net</Product>
     <Copyright>Copyright ©  2021</Copyright>
     <OutputPath>bin\$(Configuration)\</OutputPath>
   </PropertyGroup>
@@ -14,9 +14,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>F:\SteamLibrary\steamapps\common\Subnautica\Subnautica_Data\Managed\Newtonsoft.Json.dll</HintPath>
+      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\Newtonsoft.Json.dll</HintPath>
     </Reference>
-    <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="websocket-sharp">
       <HintPath>..\DLLs\websocket-sharp.dll</HintPath>
     </Reference>
