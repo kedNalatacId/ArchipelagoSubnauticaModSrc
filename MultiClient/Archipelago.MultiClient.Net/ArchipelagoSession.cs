@@ -21,7 +21,7 @@ namespace Archipelago.MultiClient.Net
         public event SocketClosedHandler SocketClosed;
 
         public string Url { get; private set; }
-        public bool Connected { get => Socket.IsAlive; }
+        public bool Connected = false;
 
         private WebSocket Socket;
 
