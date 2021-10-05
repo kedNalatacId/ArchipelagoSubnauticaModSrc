@@ -361,6 +361,7 @@ namespace Archipelago
                         connected_data = packet as ConnectedPacket;
                         updatePlayerList(connected_data.Players);
                         ErrorMessage.AddMessage("Succesfully authenticated.");
+                        APState.session.Connected = true;
                         break;
                     }
                 case ArchipelagoPacketType.ReceivedItems:
