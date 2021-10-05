@@ -60,6 +60,7 @@ namespace Archipelago.MultiClient.Net
 
         public void Disconnect()
         {
+            Connected = false;
             if (Socket.IsAlive)
             {
                 Socket.Close();
@@ -68,6 +69,7 @@ namespace Archipelago.MultiClient.Net
 
         public void DisconnectAsync()
         {
+            Connected = false;
             if (Socket.IsAlive)
             {
                 Socket.CloseAsync();
@@ -88,6 +90,7 @@ namespace Archipelago.MultiClient.Net
 
         private void OnError(object sender, ErrorEventArgs e)
         {
+            Connected = false;
             if (ErrorReceived != null)
             {
                 ErrorReceived(e.Exception, e.Message);
@@ -106,7 +109,7 @@ namespace Archipelago.MultiClient.Net
 
         public void SendMultiplePackets(params ArchipelagoPacketBase[] packets)
         {
-            if (Socket.IsAlive)
+            if (Connected)
             {
                 var packetAsJson = JsonConvert.SerializeObject(packets);
                 Socket.Send(packetAsJson);
