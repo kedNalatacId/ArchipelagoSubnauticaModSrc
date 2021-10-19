@@ -82,7 +82,7 @@ namespace Archipelago
                 GUI.Label(new Rect(16, 16, 300, 20), "Archipelago Status: Not Connected");
             }
 
-            if (APState.session == null && APState.state == APState.State.Menu)
+            if ((APState.session == null || !APState.session.Connected) && APState.state == APState.State.Menu)
             {
                 GUI.Label(new Rect(16, 36, 150, 20), "Host: ");
                 GUI.Label(new Rect(16, 56, 150, 20), "Password: ");
@@ -188,22 +188,26 @@ namespace Archipelago
 
         private void OnConsoleCommand_say(NotificationCenter.Notification n)
         {
-            var text = "";
+            string text = "";
 
             for (var i = 0; i < n.data.Count; i++)
             {
                 text += (string)n.data[i];
                 if (i < n.data.Count - 1) text += " ";
             }
-
             // Cannot type the '!' character in subnautica console, will use / instead and replace them
             text = text.Replace('/', '!');
-
-            if (APState.session != null)
+            
+            if (APState.session != null && APState.session.Connected)
             {
                 var packet = new SayPacket();
                 packet.Text = text;
                 APState.session.SendPacket(packet);
+            }
+            else
+            {
+                Debug.Log("Can only 'say' while connected to Archipelago.");
+                ErrorMessage.AddMessage("Can only 'say' while connected to Archipelago.");
             }
         }
     }
@@ -341,6 +345,7 @@ namespace Archipelago
                         GetDataPackagePacket request = new GetDataPackagePacket();
                         request.Exclusions = new List<string>();
                         session.SendPacket(request);
+                        Debug.Log("Send Connect");
                         break;
                     }
                 case ArchipelagoPacketType.ConnectionRefused:

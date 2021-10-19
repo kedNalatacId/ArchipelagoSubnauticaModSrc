@@ -17,9 +17,6 @@ namespace Archipelago.MultiClient.Net
         public delegate void ErrorReceivedHandler(Exception e, string message);
         public event ErrorReceivedHandler ErrorReceived;
 
-        public delegate void SocketClosedHandler(CloseEventArgs e);
-        public event SocketClosedHandler SocketClosed;
-
         public string Url { get; private set; }
         public bool Connected = false;
 
@@ -29,6 +26,7 @@ namespace Archipelago.MultiClient.Net
         {
             this.Url = urlToHost;
             this.Socket = new WebSocket(urlToHost);
+            this.Socket.OnOpen += OnOpen;
             this.Socket.OnMessage += OnMessageReceived;
             this.Socket.OnError += OnError;
             this.Socket.OnClose += OnClose;
@@ -36,21 +34,15 @@ namespace Archipelago.MultiClient.Net
 
         private void OnClose(object sender, CloseEventArgs e)
         {
-            if (SocketClosed != null)
-            {
-                SocketClosed(e);
-            }
+            Connected = false;
+        }
+
+        private void OnOpen(object sender, EventArgs e)
+        {
+            Connected = true;
         }
 
         public void Connect()
-        {
-            if (!Socket.IsAlive)
-            {
-                Socket.Connect();
-            }
-        }
-
-        public void ConnectAsync()
         {
             if (!Socket.IsAlive)
             {
@@ -67,18 +59,9 @@ namespace Archipelago.MultiClient.Net
             }
         }
 
-        public void DisconnectAsync()
-        {
-            Connected = false;
-            if (Socket.IsAlive)
-            {
-                Socket.CloseAsync();
-            }
-        }
-
         private void OnMessageReceived(object sender, MessageEventArgs e)
         {
-            if (e.IsText && PacketReceived != null)
+            if (e.IsText)
             {
                 var packets = JsonConvert.DeserializeObject<List<ArchipelagoPacketBase>>(e.Data, new ArchipelagoPacketConverter());
                 foreach (var packet in packets)
