@@ -71,14 +71,14 @@ namespace Archipelago
 #if DEBUG
             GUI.Box(new Rect(0, 0, Screen.width, 120), "");
 #endif
-
+            string ap_ver = "Archipelago v" + APState.AP_VERSION[0] + "." + APState.AP_VERSION[1] + "." + APState.AP_VERSION[2];
             if (APState.session != null && APState.session.Connected)
             {
-                GUI.Label(new Rect(16, 16, 300, 20), "Archipelago Status: Connected");
+                GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Connected");
             }
             else
             {
-                GUI.Label(new Rect(16, 16, 300, 20), "Archipelago Status: Not Connected");
+                GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Not Connected");
             }
 
             if (APState.session == null && APState.state == APState.State.Menu)
@@ -221,6 +221,8 @@ namespace Archipelago
             AwaitingSync,
             InGame
         }
+
+        public static int[] AP_VERSION = new int[] { 0, 1, 0 };
 
         public static string host = "";
         public static string player_name = "";
@@ -457,7 +459,7 @@ namespace Archipelago
                         connect_packet.Game = "Subnautica";
                         connect_packet.Name = player_name;
                         connect_packet.Uuid = Convert.ToString(player_name.GetHashCode(), 16);
-                        connect_packet.Version = new Version(0, 1, 0);
+                        connect_packet.Version = new Version(AP_VERSION[0], AP_VERSION[1], AP_VERSION[2]);
                         connect_packet.Tags = new List<string> { "AP" };
                         connect_packet.Password = password;
 
