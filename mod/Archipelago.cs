@@ -72,7 +72,7 @@ namespace Archipelago
             GUI.Box(new Rect(0, 0, Screen.width, 120), "");
 #endif
             string ap_ver = "Archipelago v" + APState.AP_VERSION[0] + "." + APState.AP_VERSION[1] + "." + APState.AP_VERSION[2];
-            if (APState.session != null && APState.session.Connected)
+            if (APState.session != null)
             {
                 GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Connected");
             }
@@ -94,20 +94,33 @@ namespace Archipelago
                 if (GUI.Button(new Rect(16, 96, 100, 20), "Connect"))
                 {
                     // Start the archipelago session.
-                    // Start the archipelago session.
                     var url = APState.host;
-                    if (!url.Contains(":"))
+                    int port = 38281;
+                    if (url.Contains(":"))
                     {
-                        url += ":38281";
+                        var splits = url.Split(new char[] { ':' });
+                        url = splits[0];
+                        if (!int.TryParse(splits[1], out port)) port = 38281;
                     }
-                    if (!url.Contains("ws://"))
+
+                    APState.session = ArchipelagoSessionFactory.CreateSession(url, port);
+                    APState.session.Socket.PacketReceived += APState.Session_PacketReceived;
+                    APState.session.Socket.ErrorReceived += APState.Session_ErrorReceived;
+                    APState.login_result = APState.session.TryConnectAndLogin(
+                        "Subnautica", 
+                        APState.player_name,
+                        new Version(APState.AP_VERSION[0], APState.AP_VERSION[1], APState.AP_VERSION[2]), 
+                        null, 
+                        null, 
+                        APState.password == "" ? null : APState.password);
+
+                    if (!APState.login_result.Successful)
                     {
-                        url = "ws://" + url;
+                        LoginFailure failure = APState.login_result as LoginFailure;
+                        Debug.LogError(String.Join("\n", failure.Errors));
+                        APState.session.Socket.Disconnect();
+                        APState.session = null;
                     }
-                    APState.session = new ArchipelagoSession(url);
-                    APState.session.PacketReceived += APState.Session_PacketReceived;
-                    APState.session.ErrorReceived += APState.Session_ErrorReceived;
-                    APState.session.Connect();
                 }
             }
 
@@ -202,7 +215,7 @@ namespace Archipelago
             {
                 var packet = new SayPacket();
                 packet.Text = text;
-                APState.session.SendPacket(packet);
+                APState.session.Socket.SendPacket(packet);
             }
         }
     }
@@ -222,7 +235,7 @@ namespace Archipelago
             InGame
         }
 
-        public static int[] AP_VERSION = new int[] { 0, 1, 0 };
+        public static int[] AP_VERSION = new int[] { 0, 2, 1 };
 
         public static string host = "";
         public static string player_name = "";
@@ -235,6 +248,7 @@ namespace Archipelago
         public static RoomInfoPacket room_info = null;
         public static DataPackagePacket data_package = null;
         public static ConnectedPacket connected_data = null;
+        public static LoginResult login_result = null;
         public static LocationInfoPacket location_infos = null;
         public static Dictionary<int, string> player_names_by_id = new Dictionary<int, string>
         {
@@ -323,7 +337,7 @@ namespace Archipelago
             if (e != null) Debug.LogError(e.ToString());
             if (session != null)
             {
-                session.Disconnect();
+                session.Socket.Disconnect();
                 session = null;
             }
         }
@@ -338,15 +352,15 @@ namespace Archipelago
                     {
                         room_info = packet as RoomInfoPacket;
                         updatePlayerList(room_info.Players);
-                        session.SendPacket(new GetDataPackagePacket());
+                        session.Socket.SendPacket(new GetDataPackagePacket());
                         break;
                     }
                 case ArchipelagoPacketType.ConnectionRefused:
                     {
                         var p = packet as ConnectionRefusedPacket;
-                        foreach (string err in p.Errors)
+                        foreach (var err in p.Errors)
                         {
-                            Debug.LogError(err);
+                            Debug.LogError(err.ToString());
                         }
                         break;
                     }
@@ -382,7 +396,7 @@ namespace Archipelago
                             ErrorMessage.AddError("Out of sync with server, resynchronizing");
                             // Resync, we're out of sync!
                             var sync_packet = new SyncPacket();
-                            session.SendPacket(sync_packet);
+                            session.Socket.SendPacket(sync_packet);
                             state = State.AwaitingSync;
                             break;
                         }
@@ -418,33 +432,28 @@ namespace Archipelago
                     {
                         var p = packet as PrintJsonPacket;
                         string text = "";
-                        foreach (var part in p.Data)
+                        foreach (var messagePart in p.Data)
                         {
-                            switch (part.Type)
+                            switch (messagePart.Type)
                             {
                                 case "player_id":
-                                    {
-                                        int player_id = int.Parse(part.Text);
-                                        text += player_names_by_id[player_id];
-                                        break;
-                                    }
+                                    text += int.TryParse(messagePart.Text, out var playerSlot)
+                                        ? session.Players.GetPlayerAliasAndName(playerSlot) ?? $"Slot: {playerSlot}"
+                                        : messagePart.Text;
+                                    break;
                                 case "item_id":
-                                    {
-                                        int item_id = int.Parse(part.Text);
-                                        text += data_package.DataPackage.ItemLookup[item_id];
-                                        break;
-                                    }
+                                    text += int.TryParse(messagePart.Text, out var itemId)
+                                        ? session.Items.GetItemName(itemId) ?? $"Item: {itemId}"
+                                        : messagePart.Text;
+                                    break;
                                 case "location_id":
-                                    {
-                                        int location_id = int.Parse(part.Text);
-                                        text += data_package.DataPackage.LocationLookup[location_id];
-                                        break;
-                                    }
+                                    text += int.TryParse(messagePart.Text, out var locationId)
+                                        ? session.Locations.GetLocationNameFromId(locationId) ?? $"Location: {locationId}"
+                                        : messagePart.Text;
+                                    break;
                                 default:
-                                    {
-                                        text += part.Text;
-                                        break;
-                                    }
+                                    text += messagePart.Text;
+                                    break;
                             }
                         }
                         ErrorMessage.AddMessage(text);
@@ -463,7 +472,7 @@ namespace Archipelago
                         connect_packet.Tags = new List<string> { "AP" };
                         connect_packet.Password = password;
 
-                        APState.session.SendPacket(connect_packet);
+                        APState.session.Socket.SendPacket(connect_packet);
                         break;
                     }
             }
@@ -500,7 +509,7 @@ namespace Archipelago
             {
                 var location_packet = new LocationChecksPacket();
                 location_packet.Locations = new List<int> { closest_id };
-                APState.session.SendPacket(location_packet);
+                APState.session.Socket.SendPacket(location_packet);
                 return true;
             }
 
@@ -826,7 +835,7 @@ namespace Archipelago
 
             // Make sure we have everything that's been unlocked already
             SyncPacket sync_packet = new SyncPacket();
-            APState.session.SendPacket(sync_packet);
+            APState.session.Socket.SendPacket(sync_packet);
         }
     }
 
@@ -1102,7 +1111,7 @@ namespace Archipelago
         {
             var status_update_packet = new StatusUpdatePacket();
             status_update_packet.Status = ArchipelagoClientState.ClientGoal;
-            APState.session.SendPacket(status_update_packet);
+            APState.session.Socket.SendPacket(status_update_packet);
         }
     }
 }
