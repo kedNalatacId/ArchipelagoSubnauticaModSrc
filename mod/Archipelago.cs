@@ -255,6 +255,9 @@ namespace Archipelago
             { 0, "Archipelago" }
         };
         public static List<TechType> unlock_queue = new List<TechType>();
+        public static float unlock_dequeue_timeout = 0.0f;
+        public static List<string> message_queue = new List<string>();
+        public static float message_dequeue_timeout = 0.0f;
         public static State state = State.Menu;
         public static int next_item_index = 0;
 
@@ -406,7 +409,7 @@ namespace Archipelago
                             unlock_queue.Add(ITEM_CODE_TO_TECHTYPE[item.Item]);
                         }
 
-                        next_item_index += p.Items.Count;
+                        //next_item_index += p.Items.Count;
 
                         break;
                     }
@@ -425,7 +428,8 @@ namespace Archipelago
                 case ArchipelagoPacketType.Print:
                     {
                         var p = packet as PrintPacket;
-                        ErrorMessage.AddMessage(p.Text);
+                        message_queue.Add(p.Text);
+                        //ErrorMessage.AddMessage(p.Text);
                         break;
                     }
                 case ArchipelagoPacketType.PrintJSON:
@@ -456,7 +460,8 @@ namespace Archipelago
                                     break;
                             }
                         }
-                        ErrorMessage.AddMessage(text);
+                        message_queue.Add(text);
+                        //ErrorMessage.AddMessage(text);
                         break;
                     }
                 case ArchipelagoPacketType.DataPackage:
@@ -498,7 +503,7 @@ namespace Archipelago
             foreach (var location in LOCATIONS)
             {
                 var dist = Vector3.Distance(location.position, position);
-                if (dist < closest_dist && dist < 10.0f) // More than 10m, ignore. Can't have errors that big... can we?
+                if (dist < closest_dist && dist < 1.0f) // More than 10m, ignore. Can't have errors that big... can we?
                 {
                     closest_dist = dist;
                     closest_id = location.id;
@@ -955,6 +960,11 @@ namespace Archipelago
     {
         static private bool IsSafeToUnlock()
         {
+            if (APState.unlock_dequeue_timeout > 0.0f)
+            {
+                return false;
+            }
+
             if (APState.state != APState.State.InGame)
             {
                 return false;
@@ -976,14 +986,45 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void DequeueUnlocks()
         {
+            const int DEQUEUE_COUNT = 2;
+            const float DEQUEUE_TIME = 3.0f;
+
+            if (APState.unlock_dequeue_timeout > 0.0f) APState.unlock_dequeue_timeout -= Time.deltaTime;
+            if (APState.message_dequeue_timeout > 0.0f) APState.message_dequeue_timeout -= Time.deltaTime;
+
+            // Print messages
+            if (APState.message_dequeue_timeout <= 0.0f)
+            {
+                // We only do x at a time. To not crowd the on screen log/events too fast
+                List<string> to_process = new List<string>();
+                while (to_process.Count < DEQUEUE_COUNT && APState.message_queue.Count > 0)
+                {
+                    to_process.Add(APState.message_queue[0]);
+                    APState.message_queue.RemoveAt(0);
+                }
+                foreach (var message in to_process)
+                {
+                    ErrorMessage.AddMessage(message);
+                }
+                APState.message_dequeue_timeout = DEQUEUE_TIME;
+            }
+
+            // Do unlocks
             if (IsSafeToUnlock())
             {
-                var to_process = new List<TechType>(APState.unlock_queue);
-                APState.unlock_queue.Clear();
+                // We only do x at a time. To not crowd the on screen log/events too fast
+                List<TechType> to_process = new List<TechType>();
+                while (to_process.Count < DEQUEUE_COUNT && APState.unlock_queue.Count > 0)
+                {
+                    to_process.Add(APState.unlock_queue[0]);
+                    APState.unlock_queue.RemoveAt(0);
+                }
                 foreach (var unlock in to_process)
                 {
                     APState.unlock(unlock);
+                    APState.next_item_index++;
                 }
+                APState.unlock_dequeue_timeout = DEQUEUE_TIME;
             }
         }
     }
