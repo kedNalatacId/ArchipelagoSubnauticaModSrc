@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
@@ -195,6 +196,16 @@ namespace Archipelago
 
         private void Start()
         {
+            RegisterSayCmd();
+        }
+
+        //public void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        //{
+        //    RegisterSayCmd();
+        //}
+
+        public void RegisterSayCmd()
+        {
             DevConsole.RegisterConsoleCommand(this, "say", false, false);
         }
 
@@ -216,6 +227,7 @@ namespace Archipelago
                 var packet = new SayPacket();
                 packet.Text = text;
                 APState.session.Socket.SendPacket(packet);
+                //ErrorMessage.AddError(text);
             }
         }
     }
@@ -262,6 +274,7 @@ namespace Archipelago
         public static int next_item_index = 0;
 
         public static ArchipelagoSession session;
+        public static ArchipelagoUI archipelago_ui = null;
 
 #if DEBUG
         public static string InspectGameObject(GameObject gameObject)
@@ -841,6 +854,9 @@ namespace Archipelago
             // Make sure we have everything that's been unlocked already
             SyncPacket sync_packet = new SyncPacket();
             APState.session.Socket.SendPacket(sync_packet);
+
+            // Make sure the say command is registered
+            APState.archipelago_ui.RegisterSayCmd();
         }
     }
 
@@ -1038,7 +1054,7 @@ namespace Archipelago
         {
             // Create a game object that will be responsible to drawing the IMGUI in the Menu.
             var gui_gameobject = new GameObject();
-            gui_gameobject.AddComponent<ArchipelagoUI>();
+            APState.archipelago_ui = gui_gameobject.AddComponent<ArchipelagoUI>();
             GameObject.DontDestroyOnLoad(gui_gameobject);
         }
     }
