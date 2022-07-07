@@ -2,7 +2,12 @@
 
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
+    <Configurations>Debug;Release</Configurations>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Archipelago.MultiClient.Net\Archipelago.MultiClient.Net\Archipelago.MultiClient.Net.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="0Harmony">

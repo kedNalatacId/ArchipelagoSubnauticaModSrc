@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
@@ -72,14 +73,14 @@ namespace Archipelago
 #if DEBUG
             GUI.Box(new Rect(0, 0, Screen.width, 120), "");
 #endif
-
-            if (APState.session != null && APState.session.Connected)
+            string ap_ver = "Archipelago v" + APState.AP_VERSION[0] + "." + APState.AP_VERSION[1] + "." + APState.AP_VERSION[2];
+            if (APState.session != null)
             {
-                GUI.Label(new Rect(16, 16, 300, 20), "Archipelago Status: Connected");
+                GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Connected");
             }
             else
             {
-                GUI.Label(new Rect(16, 16, 300, 20), "Archipelago Status: Not Connected");
+                GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Not Connected");
             }
 
             if ((APState.session == null || !APState.session.Connected) && APState.state == APState.State.Menu)
@@ -95,20 +96,33 @@ namespace Archipelago
                 if (GUI.Button(new Rect(16, 96, 100, 20), "Connect"))
                 {
                     // Start the archipelago session.
-                    // Start the archipelago session.
                     var url = APState.host;
-                    if (!url.Contains(":"))
+                    int port = 38281;
+                    if (url.Contains(":"))
                     {
-                        url += ":38281";
+                        var splits = url.Split(new char[] { ':' });
+                        url = splits[0];
+                        if (!int.TryParse(splits[1], out port)) port = 38281;
                     }
-                    if (!url.Contains("ws://"))
+
+                    APState.session = ArchipelagoSessionFactory.CreateSession(url, port);
+                    APState.session.Socket.PacketReceived += APState.Session_PacketReceived;
+                    APState.session.Socket.ErrorReceived += APState.Session_ErrorReceived;
+                    APState.login_result = APState.session.TryConnectAndLogin(
+                        "Subnautica", 
+                        APState.player_name,
+                        new Version(APState.AP_VERSION[0], APState.AP_VERSION[1], APState.AP_VERSION[2]), 
+                        null, 
+                        null, 
+                        APState.password == "" ? null : APState.password);
+
+                    if (!APState.login_result.Successful)
                     {
-                        url = "ws://" + url;
+                        LoginFailure failure = APState.login_result as LoginFailure;
+                        Debug.LogError(String.Join("\n", failure.Errors));
+                        APState.session.Socket.Disconnect();
+                        APState.session = null;
                     }
-                    APState.session = new ArchipelagoSession(url);
-                    APState.session.PacketReceived += APState.Session_PacketReceived;
-                    APState.session.ErrorReceived += APState.Session_ErrorReceived;
-                    APState.session.Connect();
                 }
             }
 
@@ -183,6 +197,16 @@ namespace Archipelago
 
         private void Start()
         {
+            RegisterSayCmd();
+        }
+
+        //public void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        //{
+        //    RegisterSayCmd();
+        //}
+
+        public void RegisterSayCmd()
+        {
             DevConsole.RegisterConsoleCommand(this, "say", false, false);
         }
 
@@ -202,7 +226,8 @@ namespace Archipelago
             {
                 var packet = new SayPacket();
                 packet.Text = text;
-                APState.session.SendPacket(packet);
+                APState.session.Socket.SendPacket(packet);
+                //ErrorMessage.AddError(text);
             }
             else
             {
@@ -227,6 +252,8 @@ namespace Archipelago
             InGame
         }
 
+        public static int[] AP_VERSION = new int[] { 0, 2, 1 };
+
         public static string host = "";
         public static string player_name = "";
         public static string password = "";
@@ -239,16 +266,21 @@ namespace Archipelago
         public static Dictionary<int, string> lookup_any_item = new Dictionary<int, string>();
         public static Dictionary<int, string> lookup_any_location = new Dictionary<int, string>();
         public static ConnectedPacket connected_data = null;
+        public static LoginResult login_result = null;
         public static LocationInfoPacket location_infos = null;
         public static Dictionary<int, string> player_names_by_id = new Dictionary<int, string>
         {
             { 0, "Archipelago" }
         };
         public static List<TechType> unlock_queue = new List<TechType>();
+        public static float unlock_dequeue_timeout = 0.0f;
+        public static List<string> message_queue = new List<string>();
+        public static float message_dequeue_timeout = 0.0f;
         public static State state = State.Menu;
         public static int next_item_index = 0;
 
         public static ArchipelagoSession session;
+        public static ArchipelagoUI archipelago_ui = null;
 
 #if DEBUG
         public static string InspectGameObject(GameObject gameObject)
@@ -327,7 +359,7 @@ namespace Archipelago
             if (e != null) Debug.LogError(e.ToString());
             if (session != null)
             {
-                session.Disconnect();
+                session.Socket.Disconnect();
                 session = null;
             }
         }
@@ -342,18 +374,15 @@ namespace Archipelago
                     {
                         room_info = packet as RoomInfoPacket;
                         updatePlayerList(room_info.Players);
-                        GetDataPackagePacket request = new GetDataPackagePacket();
-                        request.Exclusions = new List<string>();
-                        session.SendPacket(request);
-                        Debug.Log("Send Connect");
+                        session.Socket.SendPacket(new GetDataPackagePacket());
                         break;
                     }
                 case ArchipelagoPacketType.ConnectionRefused:
                     {
                         var p = packet as ConnectionRefusedPacket;
-                        foreach (string err in p.Errors)
+                        foreach (var err in p.Errors)
                         {
-                            Debug.LogError(err);
+                            Debug.LogError(err.ToString());
                             ErrorMessage.AddMessage(err);
                         }
                         state = State.Menu;
@@ -395,7 +424,7 @@ namespace Archipelago
                             ErrorMessage.AddError("Out of sync with server, resynchronizing");
                             // Resync, we're out of sync!
                             var sync_packet = new SyncPacket();
-                            session.SendPacket(sync_packet);
+                            session.Socket.SendPacket(sync_packet);
                             state = State.AwaitingSync;
                             break;
                         }
@@ -405,7 +434,7 @@ namespace Archipelago
                             unlock_queue.Add(ITEM_CODE_TO_TECHTYPE[item.Item]);
                         }
 
-                        next_item_index += p.Items.Count;
+                        //next_item_index += p.Items.Count;
 
                         break;
                     }
@@ -427,57 +456,40 @@ namespace Archipelago
                 case ArchipelagoPacketType.Print:
                     {
                         var p = packet as PrintPacket;
-                        ErrorMessage.AddMessage(p.Text);
+                        message_queue.Add(p.Text);
+                        //ErrorMessage.AddMessage(p.Text);
                         break;
                     }
                 case ArchipelagoPacketType.PrintJSON:
                     {
                         var p = packet as PrintJsonPacket;
                         string text = "";
-                        foreach (var part in p.Data)
+                        foreach (var messagePart in p.Data)
                         {
-                            switch (part.Type)
+                            switch (messagePart.Type)
                             {
                                 case "player_id":
-                                    {
-                                        int player_id = int.Parse(part.Text);
-                                        text += player_names_by_id[player_id];
-                                        break;
-                                    }
+                                    text += int.TryParse(messagePart.Text, out var playerSlot)
+                                        ? session.Players.GetPlayerAliasAndName(playerSlot) ?? $"Slot: {playerSlot}"
+                                        : messagePart.Text;
+                                    break;
                                 case "item_id":
-                                    {
-                                        int item_id = int.Parse(part.Text);
-                                        if (lookup_any_item.ContainsKey(item_id))
-                                        {
-                                            text += lookup_any_item[item_id];
-                                        }
-                                        else
-                                        {
-                                            text += $"Unknown Item {item_id}";
-                                        }
-                                        break;
-                                    }
+                                    text += int.TryParse(messagePart.Text, out var itemId)
+                                        ? session.Items.GetItemName(itemId) ?? $"Item: {itemId}"
+                                        : messagePart.Text;
+                                    break;
                                 case "location_id":
-                                    {
-                                        int location_id = int.Parse(part.Text);
-                                        if (lookup_any_location.ContainsKey(location_id))
-                                        {
-                                            text += lookup_any_location[location_id];
-                                        }
-                                        else
-                                        {
-                                            text += $"Unknown Location {location_id}";
-                                        }
-                                        break;
-                                    }
+                                    text += int.TryParse(messagePart.Text, out var locationId)
+                                        ? session.Locations.GetLocationNameFromId(locationId) ?? $"Location: {locationId}"
+                                        : messagePart.Text;
+                                    break;
                                 default:
-                                    {
-                                        text += part.Text;
-                                        break;
-                                    }
+                                    text += messagePart.Text;
+                                    break;
                             }
                         }
-                        ErrorMessage.AddMessage(text);
+                        message_queue.Add(text);
+                        //ErrorMessage.AddMessage(text);
                         break;
                     }
                 case ArchipelagoPacketType.DataPackage:
@@ -500,11 +512,11 @@ namespace Archipelago
                         connect_packet.Game = "Subnautica";
                         connect_packet.Name = player_name;
                         connect_packet.Uuid = Convert.ToString(player_name.GetHashCode(), 16);
-                        connect_packet.Version = new Version(0, 1, 9);
+                        connect_packet.Version = new Version(AP_VERSION[0], AP_VERSION[1], AP_VERSION[2]);
                         connect_packet.Tags = new List<string> {};
                         connect_packet.Password = password;
 
-                        APState.session.SendPacket(connect_packet);
+                        APState.session.Socket.SendPacket(connect_packet);
                         break;
                     }
             }
@@ -530,7 +542,7 @@ namespace Archipelago
             foreach (var location in LOCATIONS)
             {
                 var dist = Vector3.Distance(location.position, position);
-                if (dist < closest_dist && dist < 10.0f) // More than 10m, ignore. Can't have errors that big... can we?
+                if (dist < closest_dist && dist < 1.0f) // More than 10m, ignore. Can't have errors that big... can we?
                 {
                     closest_dist = dist;
                     closest_id = location.id;
@@ -541,7 +553,7 @@ namespace Archipelago
             {
                 var location_packet = new LocationChecksPacket();
                 location_packet.Locations = new List<int> { closest_id };
-                APState.session.SendPacket(location_packet);
+                APState.session.Socket.SendPacket(location_packet);
                 return true;
             }
 
@@ -867,7 +879,10 @@ namespace Archipelago
 
             // Make sure we have everything that's been unlocked already
             SyncPacket sync_packet = new SyncPacket();
-            APState.session.SendPacket(sync_packet);
+            APState.session.Socket.SendPacket(sync_packet);
+
+            // Make sure the say command is registered
+            APState.archipelago_ui.RegisterSayCmd();
         }
     }
 
@@ -987,6 +1002,11 @@ namespace Archipelago
     {
         static private bool IsSafeToUnlock()
         {
+            if (APState.unlock_dequeue_timeout > 0.0f)
+            {
+                return false;
+            }
+
             if (APState.state != APState.State.InGame)
             {
                 return false;
@@ -1008,14 +1028,45 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void DequeueUnlocks()
         {
+            const int DEQUEUE_COUNT = 2;
+            const float DEQUEUE_TIME = 3.0f;
+
+            if (APState.unlock_dequeue_timeout > 0.0f) APState.unlock_dequeue_timeout -= Time.deltaTime;
+            if (APState.message_dequeue_timeout > 0.0f) APState.message_dequeue_timeout -= Time.deltaTime;
+
+            // Print messages
+            if (APState.message_dequeue_timeout <= 0.0f)
+            {
+                // We only do x at a time. To not crowd the on screen log/events too fast
+                List<string> to_process = new List<string>();
+                while (to_process.Count < DEQUEUE_COUNT && APState.message_queue.Count > 0)
+                {
+                    to_process.Add(APState.message_queue[0]);
+                    APState.message_queue.RemoveAt(0);
+                }
+                foreach (var message in to_process)
+                {
+                    ErrorMessage.AddMessage(message);
+                }
+                APState.message_dequeue_timeout = DEQUEUE_TIME;
+            }
+
+            // Do unlocks
             if (IsSafeToUnlock())
             {
-                var to_process = new List<TechType>(APState.unlock_queue);
-                APState.unlock_queue.Clear();
+                // We only do x at a time. To not crowd the on screen log/events too fast
+                List<TechType> to_process = new List<TechType>();
+                while (to_process.Count < DEQUEUE_COUNT && APState.unlock_queue.Count > 0)
+                {
+                    to_process.Add(APState.unlock_queue[0]);
+                    APState.unlock_queue.RemoveAt(0);
+                }
                 foreach (var unlock in to_process)
                 {
                     APState.unlock(unlock);
+                    APState.next_item_index++;
                 }
+                APState.unlock_dequeue_timeout = DEQUEUE_TIME;
             }
         }
     }
@@ -1029,7 +1080,7 @@ namespace Archipelago
         {
             // Create a game object that will be responsible to drawing the IMGUI in the Menu.
             var gui_gameobject = new GameObject();
-            gui_gameobject.AddComponent<ArchipelagoUI>();
+            APState.archipelago_ui = gui_gameobject.AddComponent<ArchipelagoUI>();
             GameObject.DontDestroyOnLoad(gui_gameobject);
         }
     }
@@ -1143,7 +1194,7 @@ namespace Archipelago
         {
             var status_update_packet = new StatusUpdatePacket();
             status_update_packet.Status = ArchipelagoClientState.ClientGoal;
-            APState.session.SendPacket(status_update_packet);
+            APState.session.Socket.SendPacket(status_update_packet);
         }
     }
 }
