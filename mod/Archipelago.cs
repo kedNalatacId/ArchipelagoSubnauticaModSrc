@@ -4,12 +4,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
-using Archipelago.MultiClient.Net.Models;
 using System.Text;
+using WebSocketSharp;
 
 // Enforcement Platform button: (362.0, -70.3, 1082.3)
 
@@ -83,7 +82,7 @@ namespace Archipelago
                 GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Not Connected");
             }
 
-            if ((APState.session == null || !APState.session.Connected) && APState.state == APState.State.Menu)
+            if ((APState.session == null || !APState.authenticated) && APState.state == APState.State.Menu)
             {
                 GUI.Label(new Rect(16, 36, 150, 20), "Host: ");
                 GUI.Label(new Rect(16, 56, 150, 20), "Password: ");
@@ -108,17 +107,26 @@ namespace Archipelago
                     APState.session = ArchipelagoSessionFactory.CreateSession(url, port);
                     APState.session.Socket.PacketReceived += APState.Session_PacketReceived;
                     APState.session.Socket.ErrorReceived += APState.Session_ErrorReceived;
-                    APState.login_result = APState.session.TryConnectAndLogin(
+                    APState.session.Socket.SocketClosed += APState.Session_SocketClosed;
+                    LoginResult login_result = APState.session.TryConnectAndLogin(
                         "Subnautica", 
                         APState.player_name,
                         new Version(APState.AP_VERSION[0], APState.AP_VERSION[1], APState.AP_VERSION[2]), 
-                        null, 
+                        ItemsHandlingFlags.AllItems, 
                         null, 
                         APState.password == "" ? null : APState.password);
 
-                    if (!APState.login_result.Successful)
+                    if (login_result.Successful)
                     {
-                        LoginFailure failure = APState.login_result as LoginFailure;
+                        APState.authenticated = true;
+                        APState.state = APState.State.InGame;
+                        APState.message_queue.Add("Connected to Archipelago " + APState.session.RoomState.Version);
+                    }
+                    else
+                    {
+                        APState.authenticated = false;
+                        LoginFailure failure = login_result as LoginFailure;
+                        ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", failure.Errors));
                         Debug.LogError(String.Join("\n", failure.Errors));
                         APState.session.Socket.Disconnect();
                         APState.session = null;
@@ -181,7 +189,7 @@ namespace Archipelago
                     {
                         if (GUI.Button(new Rect(16 + i, j, 200, 25), kv.Value.ToString()))
                         {
-                            APState.unlock_queue.Add(kv.Value);
+                            APState.unlock(kv.Value);
                         }
                         j += 30;
                         if (j + 30 >= Screen.height)
@@ -222,12 +230,11 @@ namespace Archipelago
             // Cannot type the '!' character in subnautica console, will use / instead and replace them
             text = text.Replace('/', '!');
             
-            if (APState.session != null && APState.session.Connected)
+            if (APState.session != null && APState.authenticated)
             {
                 var packet = new SayPacket();
                 packet.Text = text;
                 APState.session.Socket.SendPacket(packet);
-                //ErrorMessage.AddError(text);
             }
             else
             {
@@ -248,11 +255,10 @@ namespace Archipelago
         public enum State
         {
             Menu,
-            AwaitingSync,
             InGame
         }
 
-        public static int[] AP_VERSION = new int[] { 0, 2, 1 };
+        public static int[] AP_VERSION = new int[] { 0, 3, 3 };
 
         public static string host = "";
         public static string player_name = "";
@@ -262,21 +268,11 @@ namespace Archipelago
         public static List<Location> LOCATIONS = new List<Location>();
 
         public static Dictionary<string, int> archipelago_indexes = new Dictionary<string, int>();
-        public static RoomInfoPacket room_info = null;
-        public static Dictionary<int, string> lookup_any_item = new Dictionary<int, string>();
-        public static Dictionary<int, string> lookup_any_location = new Dictionary<int, string>();
-        public static ConnectedPacket connected_data = null;
-        public static LoginResult login_result = null;
-        public static LocationInfoPacket location_infos = null;
-        public static Dictionary<int, string> player_names_by_id = new Dictionary<int, string>
-        {
-            { 0, "Archipelago" }
-        };
-        public static List<TechType> unlock_queue = new List<TechType>();
         public static float unlock_dequeue_timeout = 0.0f;
         public static List<string> message_queue = new List<string>();
         public static float message_dequeue_timeout = 0.0f;
         public static State state = State.Menu;
+        public static bool authenticated;
         public static int next_item_index = 0;
 
         public static ArchipelagoSession session;
@@ -353,6 +349,10 @@ namespace Archipelago
             }
         }
 
+        public static void Session_SocketClosed(CloseEventArgs args)
+        {
+            message_queue.Add("Connection to Archipelago lost: " + args.Reason);
+        }
         public static void Session_ErrorReceived(Exception e, string message)
         {
             Debug.LogError(message);
@@ -361,103 +361,20 @@ namespace Archipelago
             {
                 session.Socket.Disconnect();
                 session = null;
+                authenticated = false;
+                state = State.Menu;
             }
         }
 
         public static void Session_PacketReceived(ArchipelagoPacketBase packet)
         {
-            //ErrorMessage.AddError("Incoming Packet: " + packet.PacketType.ToString());
             Debug.Log("Incoming Packet: " + packet.PacketType.ToString());
             switch (packet.PacketType)
             {
-                case ArchipelagoPacketType.RoomInfo:
-                    {
-                        room_info = packet as RoomInfoPacket;
-                        updatePlayerList(room_info.Players);
-                        session.Socket.SendPacket(new GetDataPackagePacket());
-                        break;
-                    }
-                case ArchipelagoPacketType.ConnectionRefused:
-                    {
-                        var p = packet as ConnectionRefusedPacket;
-                        foreach (var err in p.Errors)
-                        {
-                            Debug.LogError(err.ToString());
-                            ErrorMessage.AddMessage(err);
-                        }
-                        state = State.Menu;
-                        session.Disconnect();
-                        session = null;
-                        break;
-                    }
-                case ArchipelagoPacketType.Connected:
-                    {
-                        connected_data = packet as ConnectedPacket;
-                        updatePlayerList(connected_data.Players);
-                        ErrorMessage.AddMessage("Succesfully authenticated.");
-                        APState.session.Connected = true;
-                        break;
-                    }
-                case ArchipelagoPacketType.ReceivedItems:
-                    {
-                        if (state == State.Menu)
-                        {
-                            // Ignore, we will do a sync when the game starts
-                            break;
-                        }
-
-                        var p = packet as ReceivedItemsPacket;
-                        //ErrorMessage.AddError("next_item_index: " + next_item_index.ToString() + ", Index: " + p.Index.ToString() + ", items: " + p.Items.Count.ToString());
-                        Debug.Log("next_item_index: " + next_item_index.ToString() + ", Index: " + p.Index.ToString() + ", items: " + p.Items.Count.ToString());
-
-                        if (state == State.AwaitingSync)
-                        {
-                            if (next_item_index > 0)
-                            {
-                                // Make sure to not unlock stuff we've already unlocked
-                                p.Items.RemoveRange(0, next_item_index);
-                            }
-                            state = State.InGame;
-                        }
-                        else if (next_item_index < p.Index)
-                        {
-                            ErrorMessage.AddError("Out of sync with server, resynchronizing");
-                            // Resync, we're out of sync!
-                            var sync_packet = new SyncPacket();
-                            session.Socket.SendPacket(sync_packet);
-                            state = State.AwaitingSync;
-                            break;
-                        }
-
-                        foreach (var item in p.Items)
-                        {
-                            unlock_queue.Add(ITEM_CODE_TO_TECHTYPE[item.Item]);
-                        }
-
-                        //next_item_index += p.Items.Count;
-
-                        break;
-                    }
-                case ArchipelagoPacketType.LocationInfo:
-                    {
-                        // This should contain all our checks
-                        location_infos = packet as LocationInfoPacket;
-                        break;
-                    }
-                case ArchipelagoPacketType.RoomUpdate:
-                    {
-                        var p = packet as RoomUpdatePacket;
-                        if (p.Players != null)
-                        {
-                            updatePlayerList(p.Players);
-                        }
-                        break;
-                    }
                 case ArchipelagoPacketType.Print:
                     {
                         var p = packet as PrintPacket;
                         message_queue.Add(p.Text);
-                        //ErrorMessage.AddMessage(p.Text);
                         break;
                     }
                 case ArchipelagoPacketType.PrintJSON:
@@ -489,52 +406,11 @@ namespace Archipelago
                             }
                         }
                         message_queue.Add(text);
-                        //ErrorMessage.AddMessage(text);
-                        break;
-                    }
-                case ArchipelagoPacketType.DataPackage:
-                    {
-
-                        DataPackagePacket data_package = packet as DataPackagePacket;
-                        foreach (GameData game_data in data_package.DataPackage.Games.Values)
-                        {
-                            foreach (KeyValuePair<string, int> items in game_data.ItemLookup)
-                            {
-                                lookup_any_item[items.Value] = items.Key;
-                            }
-                            foreach (KeyValuePair<string, int> items in game_data.LocationLookup)
-                            {
-                                lookup_any_location[items.Value] = items.Key;
-                            }
-                        }
-                        var connect_packet = new ConnectPacket();
-
-                        connect_packet.Game = "Subnautica";
-                        connect_packet.Name = player_name;
-                        connect_packet.Uuid = Convert.ToString(player_name.GetHashCode(), 16);
-                        connect_packet.Version = new Version(AP_VERSION[0], AP_VERSION[1], AP_VERSION[2]);
-                        connect_packet.Tags = new List<string> {};
-                        connect_packet.Password = password;
-
-                        APState.session.Socket.SendPacket(connect_packet);
                         break;
                     }
             }
         }
-
-        public static void updatePlayerList(List<MultiClient.Net.Models.NetworkPlayer> players)
-        {
-            player_names_by_id = new Dictionary<int, string>
-            {
-                { 0, "Archipelago" }
-            };
-
-            foreach (var player in players)
-            {
-                player_names_by_id[player.Slot] = player.Alias;
-            }
-        }
-
+        
         public static bool checkLocation(Vector3 position)
         {
             int closest_id = -1;
@@ -551,9 +427,7 @@ namespace Archipelago
 
             if (closest_id != -1)
             {
-                var location_packet = new LocationChecksPacket();
-                location_packet.Locations = new List<int> { closest_id };
-                APState.session.Socket.SendPacket(location_packet);
+                session.Locations.CompleteLocationChecks(closest_id);
                 return true;
             }
 
@@ -875,12 +749,6 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void GameReady()
         {
-            APState.state = APState.State.AwaitingSync;
-
-            // Make sure we have everything that's been unlocked already
-            SyncPacket sync_packet = new SyncPacket();
-            APState.session.Socket.SendPacket(sync_packet);
-
             // Make sure the say command is registered
             APState.archipelago_ui.RegisterSayCmd();
         }
@@ -1002,6 +870,12 @@ namespace Archipelago
     {
         static private bool IsSafeToUnlock()
         {
+            Debug.Log("T " + APState.unlock_dequeue_timeout + 
+                      " S " + 
+                      (APState.state != APState.State.InGame) + 
+                      " I " + (IntroVignette.isIntroActive || LaunchRocket.isLaunching) + 
+                      " C " + (PlayerCinematicController.cinematicModeCount > 0 && Time.time - PlayerCinematicController.cinematicActivityStart <= 30f) + 
+                      " F " + (SaveLoadManager.main.isSaving));
             if (APState.unlock_dequeue_timeout > 0.0f)
             {
                 return false;
@@ -1052,21 +926,20 @@ namespace Archipelago
             }
 
             // Do unlocks
+            Debug.Log("IsSafeToUnlock:" + IsSafeToUnlock());
             if (IsSafeToUnlock())
             {
-                // We only do x at a time. To not crowd the on screen log/events too fast
-                List<TechType> to_process = new List<TechType>();
-                while (to_process.Count < DEQUEUE_COUNT && APState.unlock_queue.Count > 0)
+                Debug.Log("next_item_index:" + APState.next_item_index + "/" + 
+                          APState.session.Items.AllItemsReceived.Count);
+                if (APState.next_item_index < APState.session.Items.AllItemsReceived.Count)
                 {
-                    to_process.Add(APState.unlock_queue[0]);
-                    APState.unlock_queue.RemoveAt(0);
-                }
-                foreach (var unlock in to_process)
-                {
-                    APState.unlock(unlock);
+                    APState.unlock(APState.ITEM_CODE_TO_TECHTYPE[
+                        APState.session.Items.AllItemsReceived[APState.next_item_index].Item
+                    ]);
                     APState.next_item_index++;
+                    // We only do x at a time. To not crowd the on screen log/events too fast
+                    APState.unlock_dequeue_timeout = DEQUEUE_TIME;
                 }
-                APState.unlock_dequeue_timeout = DEQUEUE_TIME;
             }
         }
     }

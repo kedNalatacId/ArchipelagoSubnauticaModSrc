@@ -5,8 +5,6 @@ VisualStudioVersion = 16.0.31025.194
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Archipelago", "Archipelago.csproj", "{914579EE-AEBA-4255-8F21-ABA1EF840E7A}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Archipelago.MultiClient.Net", "..\Archipelago.MultiClient.Net\Archipelago.MultiClient.Net\Archipelago.MultiClient.Net.csproj", "{A9B4BFAF-1521-484D-A2BA-572A8BE6B015}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,10 +15,6 @@ Global
 		{914579EE-AEBA-4255-8F21-ABA1EF840E7A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{914579EE-AEBA-4255-8F21-ABA1EF840E7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{914579EE-AEBA-4255-8F21-ABA1EF840E7A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A9B4BFAF-1521-484D-A2BA-572A8BE6B015}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A9B4BFAF-1521-484D-A2BA-572A8BE6B015}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A9B4BFAF-1521-484D-A2BA-572A8BE6B015}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A9B4BFAF-1521-484D-A2BA-572A8BE6B015}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
