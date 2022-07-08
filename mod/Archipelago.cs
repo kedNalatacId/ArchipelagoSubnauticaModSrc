@@ -82,7 +82,7 @@ namespace Archipelago
                 GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Not Connected");
             }
 
-            if ((APState.session == null || !APState.authenticated) && APState.state == APState.State.Menu)
+            if ((APState.session == null || !APState.Authenticated) && APState.state == APState.State.Menu)
             {
                 GUI.Label(new Rect(16, 36, 150, 20), "Host: ");
                 GUI.Label(new Rect(16, 56, 150, 20), "Password: ");
@@ -116,18 +116,21 @@ namespace Archipelago
                         null, 
                         APState.password == "" ? null : APState.password);
 
-                    if (login_result.Successful)
+                    if (login_result is LoginSuccessful login_success)
                     {
-                        APState.authenticated = true;
+                        APState.Authenticated = true;
                         APState.state = APState.State.InGame;
-                        APState.message_queue.Add("Connected to Archipelago " + APState.session.RoomState.Version);
+                        if (login_success.SlotData.ContainsKey("goal"))
+                        {
+                            APState.Goal = (string)login_success.SlotData["goal"];
+                            APState.GoalMapping.TryGetValue(APState.Goal, out APState.GoalEvent);
+                        }
                     }
-                    else
+                    else if (login_result is LoginFailure login_failure)
                     {
-                        APState.authenticated = false;
-                        LoginFailure failure = login_result as LoginFailure;
-                        ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", failure.Errors));
-                        Debug.LogError(String.Join("\n", failure.Errors));
+                        APState.Authenticated = false;
+                        ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", login_failure.Errors));
+                        Debug.LogError(String.Join("\n", login_failure.Errors));
                         APState.session.Socket.Disconnect();
                         APState.session = null;
                     }
@@ -230,7 +233,7 @@ namespace Archipelago
             // Cannot type the '!' character in subnautica console, will use / instead and replace them
             text = text.Replace('/', '!');
             
-            if (APState.session != null && APState.authenticated)
+            if (APState.session != null && APState.Authenticated)
             {
                 var packet = new SayPacket();
                 packet.Text = text;
@@ -258,6 +261,13 @@ namespace Archipelago
             InGame
         }
 
+        public static Dictionary<string, string> GoalMapping = new Dictionary<string, string>()
+            {
+                { "free", "Goal_Disable_Gun" },
+                { "drive", "AuroraRadiationFixed" },
+                { "infected", "Infection_Progress4" },
+            };
+
         public static int[] AP_VERSION = new int[] { 0, 3, 3 };
 
         public static string host = "";
@@ -272,7 +282,9 @@ namespace Archipelago
         public static List<string> message_queue = new List<string>();
         public static float message_dequeue_timeout = 0.0f;
         public static State state = State.Menu;
-        public static bool authenticated;
+        public static bool Authenticated;
+        public static string Goal = "launch";
+        public static string GoalEvent = "";
         public static int next_item_index = 0;
 
         public static ArchipelagoSession session;
@@ -361,7 +373,7 @@ namespace Archipelago
             {
                 session.Socket.Disconnect();
                 session = null;
-                authenticated = false;
+                Authenticated = false;
                 state = State.Menu;
             }
         }
@@ -484,6 +496,13 @@ namespace Archipelago
                 // Blueprint
                 KnownTech.Add(techType, true);
             }
+        }
+
+        public static void send_completion()
+        {
+            var statusUpdatePacket = new StatusUpdatePacket();
+            statusUpdatePacket.Status = ArchipelagoClientState.ClientGoal;
+            session.Socket.SendPacket(statusUpdatePacket);
         }
     }
 
@@ -870,12 +889,6 @@ namespace Archipelago
     {
         static private bool IsSafeToUnlock()
         {
-            Debug.Log("T " + APState.unlock_dequeue_timeout + 
-                      " S " + 
-                      (APState.state != APState.State.InGame) + 
-                      " I " + (IntroVignette.isIntroActive || LaunchRocket.isLaunching) + 
-                      " C " + (PlayerCinematicController.cinematicModeCount > 0 && Time.time - PlayerCinematicController.cinematicActivityStart <= 30f) + 
-                      " F " + (SaveLoadManager.main.isSaving));
             if (APState.unlock_dequeue_timeout > 0.0f)
             {
                 return false;
@@ -1065,9 +1078,20 @@ namespace Archipelago
         [HarmonyPrefix]
         static public void SetLaunchStarted()
         {
-            var status_update_packet = new StatusUpdatePacket();
-            status_update_packet.Status = ArchipelagoClientState.ClientGoal;
-            APState.session.Socket.SendPacket(status_update_packet);
+            APState.send_completion();
+        }
+    }
+    [HarmonyPatch(typeof(StoryGoalCustomEventHandler))]
+    [HarmonyPatch("NotifyGoalComplete")]
+    internal class StoryGoalCustomEventHandler_NotifyGoalComplete_Patch
+    {
+        [HarmonyPrefix]
+        static public void NotifyGoalComplete(string key)
+        {
+            if (key == APState.GoalEvent)
+            {
+                APState.send_completion();
+            }
         }
     }
 }
