@@ -112,23 +112,24 @@ namespace Archipelago
                     APState.Session.Socket.SocketClosed += APState.Session_SocketClosed;
                     HashSet<TechType> vanillaTech = new HashSet<TechType>();
                     
-                    LoginResult login_result = APState.Session.TryConnectAndLogin(
+                    LoginResult loginResult = APState.Session.TryConnectAndLogin(
                         "Subnautica", 
                         APState.player_name,
                         new Version(APState.AP_VERSION[0], APState.AP_VERSION[1], APState.AP_VERSION[2]), 
                         ItemsHandlingFlags.AllItems, 
                         null, 
+                        "",
                         APState.password == "" ? null : APState.password);
 
-                    if (login_result is LoginSuccessful login_success)
+                    if (loginResult is LoginSuccessful loginSuccess)
                     {
                         APState.Authenticated = true;
                         APState.state = APState.State.InGame;
-                        if (login_success.SlotData.ContainsKey("goal"))
+                        if (loginSuccess.SlotData.ContainsKey("goal"))
                         {
-                            APState.Goal = (string)login_success.SlotData["goal"];
+                            APState.Goal = (string)loginSuccess.SlotData["goal"];
                             APState.GoalMapping.TryGetValue(APState.Goal, out APState.GoalEvent);
-                            if (login_success.SlotData["vanilla_tech"] is JArray temp)
+                            if (loginSuccess.SlotData["vanilla_tech"] is JArray temp)
                             {
                                 foreach (var tech in temp)
                                 {
@@ -141,11 +142,11 @@ namespace Archipelago
                             }
                         }
                     }
-                    else if (login_result is LoginFailure login_failure)
+                    else if (loginResult is LoginFailure loginFailure)
                     {
                         APState.Authenticated = false;
-                        ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", login_failure.Errors));
-                        Debug.LogError(String.Join("\n", login_failure.Errors));
+                        ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", loginFailure.Errors));
+                        Debug.LogError(String.Join("\n", loginFailure.Errors));
                         APState.Session.Socket.Disconnect();
                         APState.Session = null;
                     }
