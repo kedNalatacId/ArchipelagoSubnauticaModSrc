@@ -9,6 +9,7 @@ using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
 using System.Text;
 using Oculus.Newtonsoft.Json;
+using Oculus.Newtonsoft.Json.Linq;
 using WebSocketSharp;
 
 // Enforcement Platform button: (362.0, -70.3, 1082.3)
@@ -74,7 +75,7 @@ namespace Archipelago
             GUI.Box(new Rect(0, 0, Screen.width, 120), "");
 #endif
             string ap_ver = "Archipelago v" + APState.AP_VERSION[0] + "." + APState.AP_VERSION[1] + "." + APState.AP_VERSION[2];
-            if (APState.session != null)
+            if (APState.Session != null)
             {
                 GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Connected");
             }
@@ -83,7 +84,7 @@ namespace Archipelago
                 GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Not Connected");
             }
 
-            if ((APState.session == null || !APState.Authenticated) && APState.state == APState.State.Menu)
+            if ((APState.Session == null || !APState.Authenticated) && APState.state == APState.State.Menu)
             {
                 GUI.Label(new Rect(16, 36, 150, 20), "Host: ");
                 GUI.Label(new Rect(16, 56, 150, 20), "Password: ");
@@ -105,11 +106,13 @@ namespace Archipelago
                         if (!int.TryParse(splits[1], out port)) port = 38281;
                     }
 
-                    APState.session = ArchipelagoSessionFactory.CreateSession(url, port);
-                    APState.session.Socket.PacketReceived += APState.Session_PacketReceived;
-                    APState.session.Socket.ErrorReceived += APState.Session_ErrorReceived;
-                    APState.session.Socket.SocketClosed += APState.Session_SocketClosed;
-                    LoginResult login_result = APState.session.TryConnectAndLogin(
+                    APState.Session = ArchipelagoSessionFactory.CreateSession(url, port);
+                    APState.Session.Socket.PacketReceived += APState.Session_PacketReceived;
+                    APState.Session.Socket.ErrorReceived += APState.Session_ErrorReceived;
+                    APState.Session.Socket.SocketClosed += APState.Session_SocketClosed;
+                    HashSet<TechType> vanillaTech = new HashSet<TechType>();
+                    
+                    LoginResult login_result = APState.Session.TryConnectAndLogin(
                         "Subnautica", 
                         APState.player_name,
                         new Version(APState.AP_VERSION[0], APState.AP_VERSION[1], APState.AP_VERSION[2]), 
@@ -125,6 +128,18 @@ namespace Archipelago
                         {
                             APState.Goal = (string)login_success.SlotData["goal"];
                             APState.GoalMapping.TryGetValue(APState.Goal, out APState.GoalEvent);
+                            Debug.LogError(login_success.SlotData["vanilla_tech"].GetType());
+                            if (login_success.SlotData["vanilla_tech"] is JArray temp)
+                            {
+                                foreach (var tech in temp)
+                                {
+                                    vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
+                                }
+                            }
+                            else
+                            {
+                                Debug.LogError("Cast Failure");
+                            }
                         }
                     }
                     else if (login_result is LoginFailure login_failure)
@@ -132,9 +147,15 @@ namespace Archipelago
                         APState.Authenticated = false;
                         ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", login_failure.Errors));
                         Debug.LogError(String.Join("\n", login_failure.Errors));
-                        APState.session.Socket.Disconnect();
-                        APState.session = null;
+                        APState.Session.Socket.Disconnect();
+                        APState.Session = null;
                     }
+                    // all fragments
+                    APState.TechFragmentsToDestroy = new HashSet<TechType>(APState.tech_fragments);
+                    // remove vanilla so it's scannable
+                    APState.TechFragmentsToDestroy.ExceptWith(vanillaTech);
+                    Debug.LogError("Preventing scanning of: " + string.Join(", ", APState.TechFragmentsToDestroy));
+                    Debug.LogError("Allowing scanning of: " + string.Join(", ", vanillaTech));
                 }
             }
 
@@ -234,11 +255,11 @@ namespace Archipelago
             // Cannot type the '!' character in subnautica console, will use / instead and replace them
             text = text.Replace('/', '!');
             
-            if (APState.session != null && APState.Authenticated)
+            if (APState.Session != null && APState.Authenticated)
             {
                 var packet = new SayPacket();
                 packet.Text = text;
-                APState.session.Socket.SendPacket(packet);
+                APState.Session.Socket.SendPacket(packet);
             }
             else
             {
@@ -288,8 +309,102 @@ namespace Archipelago
         public static string GoalEvent = "";
         public static int next_item_index = 0;
 
-        public static ArchipelagoSession session;
-        public static ArchipelagoUI archipelago_ui = null;
+        public static ArchipelagoSession Session;
+        public static ArchipelagoUI ArchipelagoUI = null;
+        
+        public static HashSet<TechType> tech_fragments = new HashSet<TechType>
+        {
+            // scannable
+            TechType.SeamothFragment,
+            TechType.StasisRifleFragment,
+            TechType.ExosuitFragment,
+            TechType.TransfuserFragment,
+            TechType.TerraformerFragment,
+            TechType.ReinforceHullFragment,
+            TechType.WorkbenchFragment,
+            TechType.PropulsionCannonFragment,
+            TechType.BioreactorFragment,
+            TechType.ThermalPlantFragment,
+            TechType.NuclearReactorFragment,
+            TechType.MoonpoolFragment,
+            TechType.CyclopsHullFragment,
+            TechType.CyclopsBridgeFragment,
+            TechType.CyclopsEngineFragment,
+            TechType.CyclopsDockingBayFragment,
+            TechType.SeaglideFragment,
+            TechType.ConstructorFragment,
+            TechType.SolarPanelFragment,
+            TechType.PowerTransmitterFragment,
+            TechType.BaseUpgradeConsoleFragment,
+            TechType.BaseObservatoryFragment,
+            TechType.BaseWaterParkFragment,
+            TechType.RadioFragment,
+            TechType.BaseRoomFragment,
+            TechType.BaseBulkheadFragment,
+            TechType.BatteryChargerFragment,
+            TechType.PowerCellChargerFragment,
+            TechType.ScannerRoomFragment,
+            TechType.SpecimenAnalyzerFragment,
+            TechType.FarmingTrayFragment,
+            TechType.SignFragment,
+            TechType.PictureFrameFragment,
+            TechType.BenchFragment,
+            TechType.PlanterPotFragment,
+            TechType.PlanterBoxFragment,
+            TechType.PlanterShelfFragment,
+            TechType.AquariumFragment,
+            TechType.ReinforcedDiveSuitFragment,
+            TechType.RadiationSuitFragment,
+            TechType.StillsuitFragment,
+            TechType.BuilderFragment,
+            TechType.LEDLightFragment,
+            TechType.TechlightFragment,
+            TechType.SpotlightFragment,
+            TechType.BaseMapRoomFragment,
+            TechType.BaseBioReactorFragment,
+            TechType.BaseNuclearReactorFragment,
+            TechType.LaserCutterFragment,
+            TechType.BeaconFragment,
+            TechType.GravSphereFragment,
+            TechType.ExosuitDrillArmFragment,
+            TechType.ExosuitPropulsionArmFragment,
+            TechType.ExosuitGrapplingArmFragment,
+            TechType.ExosuitTorpedoArmFragment,
+            TechType.ExosuitClawArmFragment,
+            TechType.PrecursorKey_PurpleFragment,
+            // non-destructive scanning
+            TechType.BaseRoom,
+            TechType.FarmingTray,
+            TechType.BaseBulkhead,
+            TechType.BasePlanter,
+            TechType.Spotlight,
+            TechType.BaseObservatory,
+            TechType.PlanterBox,
+            TechType.BaseWaterPark,
+            TechType.StarshipDesk,
+            TechType.StarshipChair,
+            TechType.StarshipChair3,
+            TechType.LabCounter,
+            TechType.NarrowBed,
+            TechType.Bed1,
+            TechType.Bed2,
+            TechType.CoffeeVendingMachine,
+            TechType.Trashcans,
+            TechType.Techlight,
+            TechType.BarTable,
+            TechType.VendingMachine,
+            TechType.SingleWallShelf,
+            TechType.WallShelves,
+            TechType.Bench,
+            TechType.PlanterPot,
+            TechType.PlanterShelf,
+            TechType.PlanterPot2,
+            TechType.PlanterPot3,
+            TechType.LabTrashcan,
+            TechType.BaseFiltrationMachine
+        };
+
+        public static HashSet<TechType> TechFragmentsToDestroy = new HashSet<TechType>();
 
 #if DEBUG
         public static string InspectGameObject(GameObject gameObject)
@@ -370,10 +485,10 @@ namespace Archipelago
         {
             Debug.LogError(message);
             if (e != null) Debug.LogError(e.ToString());
-            if (session != null)
+            if (Session != null)
             {
-                session.Socket.Disconnect();
-                session = null;
+                Session.Socket.Disconnect();
+                Session = null;
                 Authenticated = false;
                 state = State.Menu;
             }
@@ -400,17 +515,17 @@ namespace Archipelago
                             {
                                 case "player_id":
                                     text += int.TryParse(messagePart.Text, out var playerSlot)
-                                        ? session.Players.GetPlayerAliasAndName(playerSlot) ?? $"Slot: {playerSlot}"
+                                        ? Session.Players.GetPlayerAlias(playerSlot) ?? $"Slot: {playerSlot}"
                                         : messagePart.Text;
                                     break;
                                 case "item_id":
                                     text += int.TryParse(messagePart.Text, out var itemId)
-                                        ? session.Items.GetItemName(itemId) ?? $"Item: {itemId}"
+                                        ? Session.Items.GetItemName(itemId) ?? $"Item: {itemId}"
                                         : messagePart.Text;
                                     break;
                                 case "location_id":
                                     text += int.TryParse(messagePart.Text, out var locationId)
-                                        ? session.Locations.GetLocationNameFromId(locationId) ?? $"Location: {locationId}"
+                                        ? Session.Locations.GetLocationNameFromId(locationId) ?? $"Location: {locationId}"
                                         : messagePart.Text;
                                     break;
                                 default:
@@ -431,7 +546,7 @@ namespace Archipelago
             foreach (var location in LOCATIONS)
             {
                 var dist = Vector3.Distance(location.position, position);
-                if (dist < closest_dist && dist < 1.0f) // More than 10m, ignore. Can't have errors that big... can we?
+                if (dist < closest_dist && dist < 1.0f)
                 {
                     closest_dist = dist;
                     closest_id = location.id;
@@ -440,10 +555,23 @@ namespace Archipelago
 
             if (closest_id != -1)
             {
-                session.Locations.CompleteLocationChecks(closest_id);
+                Session.Locations.CompleteLocationChecks(closest_id);
                 return true;
             }
-
+            
+            ErrorMessage.AddError("Tried to check unregistered Location at: " + position);
+            Debug.LogError("Tried to check unregistered Location at: " + position);
+            foreach (var location in LOCATIONS)
+            {
+                var dist = Vector3.Distance(location.position, position);
+                if (dist < closest_dist)
+                {
+                    closest_dist = dist;
+                    closest_id = location.id;
+                }
+            }
+            ErrorMessage.AddError("Could it be Location ID " + closest_id + " with a distance of "+closest_dist + "?");
+            Debug.LogError("Could it be Location ID " + closest_id + " with a distance of "+closest_dist + "?");
             return false;
         }
 
@@ -503,7 +631,7 @@ namespace Archipelago
         {
             var statusUpdatePacket = new StatusUpdatePacket();
             statusUpdatePacket.Status = ArchipelagoClientState.ClientGoal;
-            session.Socket.SendPacket(statusUpdatePacket);
+            Session.Socket.SendPacket(statusUpdatePacket);
         }
     }
 
@@ -512,67 +640,6 @@ namespace Archipelago
     [HarmonyPatch("Start")]
     internal class ResourceTracker_Start_Patch
     {
-        public static List<TechType> tech_fragments_to_destroy = new List<TechType>
-        {
-            TechType.SeamothFragment,
-            TechType.StasisRifleFragment,
-            TechType.ExosuitFragment,
-            TechType.TransfuserFragment,
-            TechType.TerraformerFragment,
-            TechType.ReinforceHullFragment,
-            TechType.WorkbenchFragment,
-            TechType.PropulsionCannonFragment,
-            TechType.BioreactorFragment,
-            TechType.ThermalPlantFragment,
-            TechType.NuclearReactorFragment,
-            TechType.MoonpoolFragment,
-            TechType.BaseFiltrationMachineFragment,
-            TechType.CyclopsHullFragment,
-            TechType.CyclopsBridgeFragment,
-            TechType.CyclopsEngineFragment,
-            TechType.CyclopsDockingBayFragment,
-            TechType.SeaglideFragment,
-            TechType.ConstructorFragment,
-            TechType.SolarPanelFragment,
-            TechType.PowerTransmitterFragment,
-            TechType.BaseUpgradeConsoleFragment,
-            TechType.BaseObservatoryFragment,
-            TechType.BaseWaterParkFragment,
-            TechType.RadioFragment,
-            TechType.BaseRoomFragment,
-            TechType.BaseBulkheadFragment,
-            TechType.BatteryChargerFragment,
-            TechType.PowerCellChargerFragment,
-            TechType.ScannerRoomFragment,
-            TechType.SpecimenAnalyzerFragment,
-            TechType.FarmingTrayFragment,
-            TechType.SignFragment,
-            TechType.PictureFrameFragment,
-            TechType.BenchFragment,
-            TechType.PlanterPotFragment,
-            TechType.PlanterBoxFragment,
-            TechType.PlanterShelfFragment,
-            TechType.AquariumFragment,
-            TechType.ReinforcedDiveSuitFragment,
-            TechType.RadiationSuitFragment,
-            TechType.StillsuitFragment,
-            TechType.BuilderFragment,
-            TechType.LEDLightFragment,
-            TechType.TechlightFragment,
-            TechType.SpotlightFragment,
-            TechType.BaseMapRoomFragment,
-            TechType.BaseBioReactorFragment,
-            TechType.BaseNuclearReactorFragment,
-            TechType.LaserCutterFragment,
-            TechType.BeaconFragment,
-            TechType.GravSphereFragment,
-            TechType.ExosuitDrillArmFragment,
-            TechType.ExosuitPropulsionArmFragment,
-            TechType.ExosuitGrapplingArmFragment,
-            TechType.ExosuitTorpedoArmFragment,
-            TechType.ExosuitClawArmFragment,
-            TechType.PrecursorKey_PurpleFragment
-        };
 
         [HarmonyPostfix]
         public static void RemoveFragment(ResourceTracker __instance)
@@ -584,7 +651,7 @@ namespace Archipelago
                 var techTag = __instance.GetComponent<TechTag>();
                 if (techTag != null)
                 {
-                    if (tech_fragments_to_destroy.Contains(techTag.type))
+                    if (APState.TechFragmentsToDestroy.Contains(techTag.type))
                     {
                         UnityEngine.Object.Destroy(__instance.gameObject);
                     }
@@ -594,7 +661,7 @@ namespace Archipelago
                     UnityEngine.Object.Destroy(__instance.gameObject); // No techtag, so it's just "fragment", remove it...
                 }
             }
-            else if (tech_fragments_to_destroy.Contains(techType)) // Not fragment, but could be one of the others
+            else if (APState.TechFragmentsToDestroy.Contains(techType)) // Not fragment, but could be one of the others
             {
                 UnityEngine.Object.Destroy(__instance.gameObject);
             }
@@ -605,41 +672,6 @@ namespace Archipelago
     [HarmonyPatch("UpdateTarget")]
     internal class PDAScanner_UpdateTarget_Patch
     {
-        public static List<TechType> tech_fragments_to_ignore = new List<TechType>
-        {
-            TechType.BaseRoom,
-            TechType.FarmingTray,
-            TechType.BaseBulkhead,
-            TechType.BasePlanter,
-            TechType.Spotlight,
-            TechType.BaseObservatory,
-            TechType.PlanterBox,
-            TechType.BaseWaterPark,
-            TechType.StarshipDesk,
-            TechType.StarshipChair,
-            TechType.StarshipChair3,
-            TechType.LabCounter,
-            TechType.NarrowBed,
-            TechType.Bed1,
-            TechType.Bed2,
-            TechType.CoffeeVendingMachine,
-            TechType.Trashcans,
-            TechType.Techlight,
-            TechType.BarTable,
-            TechType.VendingMachine,
-            TechType.SingleWallShelf,
-            TechType.WallShelves,
-            TechType.Bench,
-            TechType.PlanterPot,
-            TechType.PlanterShelf,
-            TechType.PlanterPot2,
-            TechType.PlanterPot3,
-            TechType.LabTrashcan,
-            TechType.BasePlanter,
-            TechType.ExosuitClawArmFragment,
-            TechType.BaseFiltrationMachine
-        };
-
         [HarmonyPostfix]
         public static void MakeUnscanable()
         {
@@ -648,7 +680,7 @@ namespace Archipelago
                 var tech_tag = PDAScanner.scanTarget.gameObject.GetComponent<TechTag>();
                 if (tech_tag != null)
                 {
-                    if (tech_fragments_to_ignore.Contains(tech_tag.type))
+                    if (APState.TechFragmentsToDestroy.Contains(tech_tag.type))
                     {
                         PDAScanner.scanTarget.Invalidate();
                     }
@@ -770,7 +802,7 @@ namespace Archipelago
         public static void GameReady()
         {
             // Make sure the say command is registered
-            APState.archipelago_ui.RegisterSayCmd();
+            APState.ArchipelagoUI.RegisterSayCmd();
         }
     }
 
@@ -940,15 +972,12 @@ namespace Archipelago
             }
 
             // Do unlocks
-            Debug.Log("IsSafeToUnlock:" + IsSafeToUnlock());
             if (IsSafeToUnlock())
             {
-                Debug.Log("next_item_index:" + APState.next_item_index + "/" + 
-                          APState.session.Items.AllItemsReceived.Count);
-                if (APState.next_item_index < APState.session.Items.AllItemsReceived.Count)
+                if (APState.next_item_index < APState.Session.Items.AllItemsReceived.Count)
                 {
                     APState.unlock(APState.ITEM_CODE_TO_TECHTYPE[
-                        APState.session.Items.AllItemsReceived[APState.next_item_index].Item
+                        APState.Session.Items.AllItemsReceived[APState.next_item_index].Item
                     ]);
                     APState.next_item_index++;
                     // We only do x at a time. To not crowd the on screen log/events too fast
@@ -967,7 +996,7 @@ namespace Archipelago
         {
             // Create a game object that will be responsible to drawing the IMGUI in the Menu.
             var gui_gameobject = new GameObject();
-            APState.archipelago_ui = gui_gameobject.AddComponent<ArchipelagoUI>();
+            APState.ArchipelagoUI = gui_gameobject.AddComponent<ArchipelagoUI>();
             GameObject.DontDestroyOnLoad(gui_gameobject);
         }
     }
