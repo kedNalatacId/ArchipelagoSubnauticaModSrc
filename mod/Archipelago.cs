@@ -8,6 +8,7 @@ using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
 using System.Text;
+using Oculus.Newtonsoft.Json;
 using WebSocketSharp;
 
 // Enforcement Platform button: (362.0, -70.3, 1082.3)
@@ -330,31 +331,31 @@ namespace Archipelago
             {
                 var reader = File.OpenText("QMods/Archipelago/items.json");
                 var content = reader.ReadToEnd();
-                var json = new JSONObject(content);
                 reader.Close();
-
-                foreach (var item_json in json)
+                var data = JsonConvert.DeserializeObject<Dictionary<int, string>>(content);
+                foreach (var itemJson in data)
                 {
-                    ITEM_CODE_TO_TECHTYPE[(int)item_json.GetField("id").i] =
-                        (TechType)Enum.Parse(typeof(TechType), item_json.GetField("tech_type").str);
+                    ITEM_CODE_TO_TECHTYPE[itemJson.Key] =
+                        (TechType)Enum.Parse(typeof(TechType), itemJson.Value);
                 }
             }
-
             // Load locations.json
             {
                 var reader = File.OpenText("QMods/Archipelago/locations.json");
                 var content = reader.ReadToEnd();
-                var json = new JSONObject(content);
+                var data = JsonConvert.DeserializeObject<Dictionary<int, Dictionary<string, float>>>(content);
+                
                 reader.Close();
 
-                foreach (var location_json in json)
+                foreach (var locationJson in data)
                 {
                     Location location = new Location();
-                    location.id = (int)location_json.GetField("id").i;
+                    location.id = locationJson.Key;
+                    var vec = locationJson.Value;
                     location.position = new Vector3(
-                        location_json.GetField("position").GetField("x").f,
-                        location_json.GetField("position").GetField("y").f,
-                        location_json.GetField("position").GetField("z").f
+                        vec["x"],
+                        vec["y"],
+                        vec["z"]
                     );
                     LOCATIONS.Add(location);
                 }
