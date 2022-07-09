@@ -582,7 +582,7 @@ namespace Archipelago
                 Session.Locations.CompleteLocationChecks(closest_id);
                 return true;
             }
-            
+#if DEBUG
             ErrorMessage.AddError("Tried to check unregistered Location at: " + position);
             Debug.LogError("Tried to check unregistered Location at: " + position);
             foreach (var location in LOCATIONS)
@@ -596,6 +596,7 @@ namespace Archipelago
             }
             ErrorMessage.AddError("Could it be Location ID " + closest_id + " with a distance of "+closestDist + "?");
             Debug.LogError("Could it be Location ID " + closest_id + " with a distance of "+closestDist + "?");
+#endif
             return false;
         }
 
