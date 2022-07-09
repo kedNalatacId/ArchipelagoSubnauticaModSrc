@@ -87,12 +87,12 @@ namespace Archipelago
             if ((APState.Session == null || !APState.Authenticated) && APState.state == APState.State.Menu)
             {
                 GUI.Label(new Rect(16, 36, 150, 20), "Host: ");
-                GUI.Label(new Rect(16, 56, 150, 20), "Password: ");
-                GUI.Label(new Rect(16, 76, 150, 20), "PlayerName: ");
+                GUI.Label(new Rect(16, 56, 150, 20), "PlayerName: ");
+                GUI.Label(new Rect(16, 76, 150, 20), "Password: ");
 
                 APState.host = GUI.TextField(new Rect(150 + 16 + 8, 36, 150, 20), APState.host);
-                APState.password = GUI.TextField(new Rect(150 + 16 + 8, 56, 150, 20), APState.password);
-                APState.player_name = GUI.TextField(new Rect(150 + 16 + 8, 76, 150, 20), APState.player_name);
+                APState.player_name = GUI.TextField(new Rect(150 + 16 + 8, 56, 150, 20), APState.player_name);
+                APState.password = GUI.TextField(new Rect(150 + 16 + 8, 76, 150, 20), APState.password);
 
                 if (GUI.Button(new Rect(16, 96, 100, 20), "Connect"))
                 {
@@ -128,7 +128,6 @@ namespace Archipelago
                         {
                             APState.Goal = (string)login_success.SlotData["goal"];
                             APState.GoalMapping.TryGetValue(APState.Goal, out APState.GoalEvent);
-                            Debug.LogError(login_success.SlotData["vanilla_tech"].GetType());
                             if (login_success.SlotData["vanilla_tech"] is JArray temp)
                             {
                                 foreach (var tech in temp)
@@ -156,6 +155,30 @@ namespace Archipelago
                     APState.TechFragmentsToDestroy.ExceptWith(vanillaTech);
                     Debug.LogError("Preventing scanning of: " + string.Join(", ", APState.TechFragmentsToDestroy));
                     Debug.LogError("Allowing scanning of: " + string.Join(", ", vanillaTech));
+                }
+            }
+            else if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
+            {
+                Vector3 playerPos = Player.main.gameObject.transform.position;
+                float closestDist = 100000.0f;
+                float dist;
+                long closestID = -1;
+                foreach (var loc_id in APState.Session.Locations.AllMissingLocations)
+                {
+                    dist = Vector3.Distance(playerPos, APState.LOCATIONS[loc_id].position);
+                    if (dist < closestDist)
+                    {
+                        closestDist = dist;
+                        closestID = loc_id;
+                    }
+                }
+                if (closestID != 1)
+                {
+                    GUI.Label(new Rect(16, 36, 1000, 20), 
+                        "Locations left: " +
+                        APState.Session.Locations.AllMissingLocations.Count +
+                        ". Closest is " + (int)closestDist + " m away, named " + 
+                        APState.Session.Locations.GetLocationNameFromId(closestID));
                 }
             }
 
@@ -273,7 +296,7 @@ namespace Archipelago
     {
         public struct Location
         {
-            public int id;
+            public long ID;
             public Vector3 position;
         }
 
@@ -297,7 +320,7 @@ namespace Archipelago
         public static string password = "";
 
         public static Dictionary<int, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<int, TechType>();
-        public static List<Location> LOCATIONS = new List<Location>();
+        public static Dictionary<long, Location> LOCATIONS = new Dictionary<long, Location>();
 
         public static Dictionary<string, int> archipelago_indexes = new Dictionary<string, int>();
         public static float unlock_dequeue_timeout = 0.0f;
@@ -465,14 +488,14 @@ namespace Archipelago
                 foreach (var locationJson in data)
                 {
                     Location location = new Location();
-                    location.id = locationJson.Key;
+                    location.ID = locationJson.Key;
                     var vec = locationJson.Value;
                     location.position = new Vector3(
                         vec["x"],
                         vec["y"],
                         vec["z"]
                     );
-                    LOCATIONS.Add(location);
+                    LOCATIONS.Add(location.ID, location);
                 }
             }
         }
@@ -541,15 +564,15 @@ namespace Archipelago
         
         public static bool checkLocation(Vector3 position)
         {
-            int closest_id = -1;
-            float closest_dist = 100000.0f;
+            long closest_id = -1;
+            float closestDist = 100000.0f;
             foreach (var location in LOCATIONS)
             {
-                var dist = Vector3.Distance(location.position, position);
-                if (dist < closest_dist && dist < 1.0f)
+                var dist = Vector3.Distance(location.Value.position, position);
+                if (dist < closestDist && dist < 1.0f)
                 {
-                    closest_dist = dist;
-                    closest_id = location.id;
+                    closestDist = dist;
+                    closest_id = location.Key;
                 }
             }
 
@@ -563,15 +586,15 @@ namespace Archipelago
             Debug.LogError("Tried to check unregistered Location at: " + position);
             foreach (var location in LOCATIONS)
             {
-                var dist = Vector3.Distance(location.position, position);
-                if (dist < closest_dist)
+                var dist = Vector3.Distance(location.Value.position, position);
+                if (dist < closestDist)
                 {
-                    closest_dist = dist;
-                    closest_id = location.id;
+                    closestDist = dist;
+                    closest_id = location.Key;
                 }
             }
-            ErrorMessage.AddError("Could it be Location ID " + closest_id + " with a distance of "+closest_dist + "?");
-            Debug.LogError("Could it be Location ID " + closest_id + " with a distance of "+closest_dist + "?");
+            ErrorMessage.AddError("Could it be Location ID " + closest_id + " with a distance of "+closestDist + "?");
+            Debug.LogError("Could it be Location ID " + closest_id + " with a distance of "+closestDist + "?");
             return false;
         }
 
@@ -920,7 +943,7 @@ namespace Archipelago
     [HarmonyPatch("Update")]
     internal class MainGameController_Update_Patch
     {
-        static private bool IsSafeToUnlock()
+        private static bool IsSafeToUnlock()
         {
             if (APState.unlock_dequeue_timeout > 0.0f)
             {
