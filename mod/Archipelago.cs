@@ -8,6 +8,7 @@ using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
 using System.Text;
+using System.Threading;
 using Oculus.Newtonsoft.Json;
 using Oculus.Newtonsoft.Json.Linq;
 using WebSocketSharp;
@@ -160,26 +161,13 @@ namespace Archipelago
             }
             else if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
             {
-                Vector3 playerPos = Player.main.gameObject.transform.position;
-                float closestDist = 100000.0f;
-                float dist;
-                long closestID = -1;
-                foreach (var loc_id in APState.Session.Locations.AllMissingLocations)
-                {
-                    dist = Vector3.Distance(playerPos, APState.LOCATIONS[loc_id].position);
-                    if (dist < closestDist)
-                    {
-                        closestDist = dist;
-                        closestID = loc_id;
-                    }
-                }
-                if (closestID != 1)
+                if (APState.TrackedLocation != -1)
                 {
                     GUI.Label(new Rect(16, 36, 1000, 20), 
                         "Locations left: " +
                         APState.Session.Locations.AllMissingLocations.Count +
-                        ". Closest is " + (int)closestDist + " m away, named " + 
-                        APState.Session.Locations.GetLocationNameFromId(closestID));
+                        ". Closest is " + (int)APState.TrackedDistance + " m away, named " + 
+                        APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation));
                 }
             }
 
@@ -254,7 +242,7 @@ namespace Archipelago
 
         private void Start()
         {
-            RegisterSayCmd();
+            RegisterCmds();
         }
 
         //public void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -262,9 +250,10 @@ namespace Archipelago
         //    RegisterSayCmd();
         //}
 
-        public void RegisterSayCmd()
+        public void RegisterCmds()
         {
             DevConsole.RegisterConsoleCommand(this, "say", false, false);
+            DevConsole.RegisterConsoleCommand(this, "silent", false, false);
         }
 
         private void OnConsoleCommand_say(NotificationCenter.Notification n)
@@ -291,6 +280,21 @@ namespace Archipelago
                 ErrorMessage.AddMessage("Can only 'say' while connected to Archipelago.");
             }
         }
+        private void OnConsoleCommand_silent(NotificationCenter.Notification n)
+        {
+            APState.Silent = !APState.Silent;
+            
+            if (APState.Silent)
+            {
+                Debug.Log("Muted Archipelago chat.");
+                ErrorMessage.AddMessage("Muted Archipelago chat.");
+            }
+            else
+            {
+                Debug.Log("Enabled Archipelago chat.");
+                ErrorMessage.AddMessage("Enabled Archipelago chat.");
+            }
+        }
     }
 
     public static class APState
@@ -298,7 +302,7 @@ namespace Archipelago
         public struct Location
         {
             public long ID;
-            public Vector3 position;
+            public Vector3 Position;
         }
 
         public enum State
@@ -332,6 +336,10 @@ namespace Archipelago
         public static string Goal = "launch";
         public static string GoalEvent = "";
         public static int next_item_index = 0;
+        public static bool Silent = false;
+        public static Thread TrackerProcessing;
+        public static long TrackedLocation;
+        public static float TrackedDistance;
 
         public static ArchipelagoSession Session;
         public static ArchipelagoUI ArchipelagoUI = null;
@@ -464,7 +472,7 @@ namespace Archipelago
         }
 #endif
 
-        static public void Init()
+        public static void Init()
         {
             // Load items.json
             {
@@ -491,7 +499,7 @@ namespace Archipelago
                     Location location = new Location();
                     location.ID = locationJson.Key;
                     var vec = locationJson.Value;
-                    location.position = new Vector3(
+                    location.Position = new Vector3(
                         vec["x"],
                         vec["y"],
                         vec["z"]
@@ -499,6 +507,10 @@ namespace Archipelago
                     LOCATIONS.Add(location.ID, location);
                 }
             }
+            // launch thread
+            TrackerProcessing = new Thread(TrackerThread.DoWork);
+            TrackerProcessing.IsBackground = true;
+            TrackerProcessing.Start();
         }
 
         public static void Session_SocketClosed(CloseEventArgs args)
@@ -524,40 +536,47 @@ namespace Archipelago
             switch (packet.PacketType)
             {
                 case ArchipelagoPacketType.Print:
+                {
+                    if (!Silent)
                     {
                         var p = packet as PrintPacket;
                         message_queue.Add(p.Text);
-                        break;
                     }
+                    break;
+                }
+
                 case ArchipelagoPacketType.PrintJSON:
                     {
-                        var p = packet as PrintJsonPacket;
-                        string text = "";
-                        foreach (var messagePart in p.Data)
+                        if (!Silent)
                         {
-                            switch (messagePart.Type)
+                            var p = packet as PrintJsonPacket;
+                            string text = "";
+                            foreach (var messagePart in p.Data)
                             {
-                                case "player_id":
-                                    text += int.TryParse(messagePart.Text, out var playerSlot)
-                                        ? Session.Players.GetPlayerAlias(playerSlot) ?? $"Slot: {playerSlot}"
-                                        : messagePart.Text;
-                                    break;
-                                case "item_id":
-                                    text += int.TryParse(messagePart.Text, out var itemId)
-                                        ? Session.Items.GetItemName(itemId) ?? $"Item: {itemId}"
-                                        : messagePart.Text;
-                                    break;
-                                case "location_id":
-                                    text += int.TryParse(messagePart.Text, out var locationId)
-                                        ? Session.Locations.GetLocationNameFromId(locationId) ?? $"Location: {locationId}"
-                                        : messagePart.Text;
-                                    break;
-                                default:
-                                    text += messagePart.Text;
-                                    break;
+                                switch (messagePart.Type)
+                                {
+                                    case "player_id":
+                                        text += int.TryParse(messagePart.Text, out var playerSlot)
+                                            ? Session.Players.GetPlayerAlias(playerSlot) ?? $"Slot: {playerSlot}"
+                                            : messagePart.Text;
+                                        break;
+                                    case "item_id":
+                                        text += int.TryParse(messagePart.Text, out var itemId)
+                                            ? Session.Items.GetItemName(itemId) ?? $"Item: {itemId}"
+                                            : messagePart.Text;
+                                        break;
+                                    case "location_id":
+                                        text += int.TryParse(messagePart.Text, out var locationId)
+                                            ? Session.Locations.GetLocationNameFromId(locationId) ?? $"Location: {locationId}"
+                                            : messagePart.Text;
+                                        break;
+                                    default:
+                                        text += messagePart.Text;
+                                        break;
+                                }
                             }
+                            message_queue.Add(text);
                         }
-                        message_queue.Add(text);
                         break;
                     }
             }
@@ -569,7 +588,7 @@ namespace Archipelago
             float closestDist = 100000.0f;
             foreach (var location in LOCATIONS)
             {
-                var dist = Vector3.Distance(location.Value.position, position);
+                var dist = Vector3.Distance(location.Value.Position, position);
                 if (dist < closestDist && dist < 1.0f)
                 {
                     closestDist = dist;
@@ -827,7 +846,7 @@ namespace Archipelago
         public static void GameReady()
         {
             // Make sure the say command is registered
-            APState.ArchipelagoUI.RegisterSayCmd();
+            APState.ArchipelagoUI.RegisterCmds();
         }
     }
 
@@ -1020,9 +1039,9 @@ namespace Archipelago
         public static void CreateArchipelagoUI()
         {
             // Create a game object that will be responsible to drawing the IMGUI in the Menu.
-            var gui_gameobject = new GameObject();
-            APState.ArchipelagoUI = gui_gameobject.AddComponent<ArchipelagoUI>();
-            GameObject.DontDestroyOnLoad(gui_gameobject);
+            var guiGameobject = new GameObject();
+            APState.ArchipelagoUI = guiGameobject.AddComponent<ArchipelagoUI>();
+            GameObject.DontDestroyOnLoad(guiGameobject);
         }
     }
 
