@@ -1,7 +1,9 @@
 ﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using Archipelago.MultiClient.Net;
@@ -12,6 +14,8 @@ using System.Threading;
 using Oculus.Newtonsoft.Json;
 using Oculus.Newtonsoft.Json.Linq;
 using WebSocketSharp;
+using Debug = UnityEngine.Debug;
+using File = System.IO.File;
 
 // Enforcement Platform button: (362.0, -70.3, 1082.3)
 
@@ -91,84 +95,31 @@ namespace Archipelago
                 GUI.Label(new Rect(16, 56, 150, 20), "PlayerName: ");
                 GUI.Label(new Rect(16, 76, 150, 20), "Password: ");
 
-                APState.host = GUI.TextField(new Rect(150 + 16 + 8, 36, 150, 20), APState.host);
-                APState.player_name = GUI.TextField(new Rect(150 + 16 + 8, 56, 150, 20), APState.player_name);
+                APState.host_name = GUI.TextField(new Rect(150 + 16 + 8, 36, 150, 20), APState.host_name);
+                APState.slot_name = GUI.TextField(new Rect(150 + 16 + 8, 56, 150, 20), APState.slot_name);
                 APState.password = GUI.TextField(new Rect(150 + 16 + 8, 76, 150, 20), APState.password);
 
                 if (GUI.Button(new Rect(16, 96, 100, 20), "Connect"))
                 {
-                    // Start the archipelago session.
-                    var url = APState.host;
-                    int port = 38281;
-                    if (url.Contains(":"))
-                    {
-                        var splits = url.Split(new char[] { ':' });
-                        url = splits[0];
-                        if (!int.TryParse(splits[1], out port)) port = 38281;
-                    }
-
-                    APState.Session = ArchipelagoSessionFactory.CreateSession(url, port);
-                    APState.Session.Socket.PacketReceived += APState.Session_PacketReceived;
-                    APState.Session.Socket.ErrorReceived += APState.Session_ErrorReceived;
-                    APState.Session.Socket.SocketClosed += APState.Session_SocketClosed;
-                    HashSet<TechType> vanillaTech = new HashSet<TechType>();
-                    
-                    LoginResult loginResult = APState.Session.TryConnectAndLogin(
-                        "Subnautica", 
-                        APState.player_name,
-                        new Version(APState.AP_VERSION[0], APState.AP_VERSION[1], APState.AP_VERSION[2]), 
-                        ItemsHandlingFlags.AllItems, 
-                        null, 
-                        "",
-                        APState.password == "" ? null : APState.password);
-
-                    if (loginResult is LoginSuccessful loginSuccess)
-                    {
-                        APState.Authenticated = true;
-                        APState.state = APState.State.InGame;
-                        if (loginSuccess.SlotData.ContainsKey("goal"))
-                        {
-                            APState.Goal = (string)loginSuccess.SlotData["goal"];
-                            APState.GoalMapping.TryGetValue(APState.Goal, out APState.GoalEvent);
-                            if (loginSuccess.SlotData["vanilla_tech"] is JArray temp)
-                            {
-                                foreach (var tech in temp)
-                                {
-                                    vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
-                                }
-                            }
-                            else
-                            {
-                                Debug.LogError("Cast Failure");
-                            }
-                        }
-                    }
-                    else if (loginResult is LoginFailure loginFailure)
-                    {
-                        APState.Authenticated = false;
-                        ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", loginFailure.Errors));
-                        Debug.LogError(String.Join("\n", loginFailure.Errors));
-                        APState.Session.Socket.Disconnect();
-                        APState.Session = null;
-                    }
-                    // all fragments
-                    APState.TechFragmentsToDestroy = new HashSet<TechType>(APState.tech_fragments);
-                    // remove vanilla so it's scannable
-                    APState.TechFragmentsToDestroy.ExceptWith(vanillaTech);
-                    Debug.LogError("Preventing scanning of: " + string.Join(", ", APState.TechFragmentsToDestroy));
-                    Debug.LogError("Allowing scanning of: " + string.Join(", ", vanillaTech));
+                    APState.Connect();
                 }
             }
             else if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
             {
+                
                 if (APState.TrackedLocation != -1)
                 {
                     GUI.Label(new Rect(16, 36, 1000, 20), 
                         "Locations left: " +
                         APState.Session.Locations.AllMissingLocations.Count +
                         ". Closest is " + (int)APState.TrackedDistance + " m away, named " + 
-                        APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation));
+                        APState.TrackedLocationName);
+                    // TODO: find a way to display this
+                    //GUI.Label(new Rect(16, 56, 1000, 20), 
+                    //    APState.TrackedAngle.ToString());
                 }
+                
+
             }
 
 #if DEBUG
@@ -320,8 +271,8 @@ namespace Archipelago
 
         public static int[] AP_VERSION = new int[] { 0, 3, 3 };
 
-        public static string host = "";
-        public static string player_name = "";
+        public static string host_name = "";
+        public static string slot_name = "";
         public static string password = "";
 
         public static Dictionary<int, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<int, TechType>();
@@ -335,11 +286,13 @@ namespace Archipelago
         public static bool Authenticated;
         public static string Goal = "launch";
         public static string GoalEvent = "";
-        public static int next_item_index = 0;
+        public static long next_item_index = 0;
         public static bool Silent = false;
         public static Thread TrackerProcessing;
         public static long TrackedLocation;
+        public static string TrackedLocationName;
         public static float TrackedDistance;
+        public static float TrackedAngle;
 
         public static ArchipelagoSession Session;
         public static ArchipelagoUI ArchipelagoUI = null;
@@ -512,7 +465,71 @@ namespace Archipelago
             TrackerProcessing.IsBackground = true;
             TrackerProcessing.Start();
         }
+        public static bool Connect()
+        {
+            // Start the archipelago session.
+            var url = APState.host_name;
+            int port = 38281;
+            if (url.Contains(":"))
+            {
+                var splits = url.Split(new char[] { ':' });
+                url = splits[0];
+                if (!int.TryParse(splits[1], out port)) port = 38281;
+            }
 
+            Session = ArchipelagoSessionFactory.CreateSession(url, port);
+            Session.Socket.PacketReceived += Session_PacketReceived;
+            Session.Socket.ErrorReceived += Session_ErrorReceived;
+            Session.Socket.SocketClosed += Session_SocketClosed;
+            HashSet<TechType> vanillaTech = new HashSet<TechType>();
+            
+            LoginResult loginResult = Session.TryConnectAndLogin(
+                "Subnautica", 
+                slot_name,
+                new Version(AP_VERSION[0], AP_VERSION[1], AP_VERSION[2]), 
+                ItemsHandlingFlags.AllItems, 
+                null, 
+                "",
+                password == "" ? null : password);
+
+            if (loginResult is LoginSuccessful loginSuccess)
+            {
+                Authenticated = true;
+                state = State.InGame;
+                if (loginSuccess.SlotData.ContainsKey("goal"))
+                {
+                    Goal = (string)loginSuccess.SlotData["goal"];
+                    GoalMapping.TryGetValue(Goal, out GoalEvent);
+                    if (loginSuccess.SlotData["vanilla_tech"] is JArray temp)
+                    {
+                        foreach (var tech in temp)
+                        {
+                            vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError("Cast Failure");
+                    }
+                }
+            }
+            else if (loginResult is LoginFailure loginFailure)
+            {
+                Authenticated = false;
+                ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", loginFailure.Errors));
+                Debug.LogError(String.Join("\n", loginFailure.Errors));
+                Session.Socket.Disconnect();
+                Session = null;
+            }
+            // all fragments
+            TechFragmentsToDestroy = new HashSet<TechType>(APState.tech_fragments);
+            // remove vanilla so it's scannable
+            TechFragmentsToDestroy.ExceptWith(vanillaTech);
+            Debug.LogError("Preventing scanning of: " + string.Join(", ", TechFragmentsToDestroy));
+            Debug.LogError("Allowing scanning of: " + string.Join(", ", vanillaTech));
+            return loginResult.Successful;
+        }
+        
         public static void Session_SocketClosed(CloseEventArgs args)
         {
             message_queue.Add("Connection to Archipelago lost: " + args.Reason);
@@ -849,15 +866,67 @@ namespace Archipelago
             APState.ArchipelagoUI.RegisterCmds();
         }
     }
-
+    
+    [HarmonyPatch(typeof(SaveLoadManager.GameInfo))]
+    [HarmonyPatch("SaveIntoCurrentSlot")]
+    internal class GameInfo_SaveIntoCurrentSlot_Patch
+    {
+        [HarmonyPostfix]
+        public static void SaveIntoCurrentSlot(SaveLoadManager.GameInfo info)
+        {
+            Dictionary<string, object> apData = new Dictionary<string, object>();
+            apData.Add("index", APState.next_item_index);
+            apData.Add("host_name", APState.host_name);
+            apData.Add("slot_name", APState.slot_name);
+            apData.Add("password", APState.password);
+            
+            if (APState.Session != null)
+            {
+                apData.Add("checked", APState.Session.Locations.AllLocationsChecked);
+            }
+            else
+            {
+                long[] alreadyChecked = {};
+                apData.Add("checked", alreadyChecked);
+            }
+            var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(apData));
+            Platform.IO.File.WriteAllBytes(Platform.IO.Path.Combine(SaveLoadManager.GetTemporarySavePath(), 
+                "archipelago.json"), bytes);
+        }
+    }
+    
     [HarmonyPatch(typeof(SaveLoadManager))]
     [HarmonyPatch("SetCurrentSlot")]
     internal class SaveLoadManager_SetCurrentSlot_Patch
     {
         [HarmonyPostfix]
-        public static void SetCurrentItemIndex(string _currentSlot)
+        public static void LoadArchipelagoState(string _currentSlot)
         {
-            if (APState.archipelago_indexes.ContainsKey(_currentSlot))
+            var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
+            var rawPath = storage.GetType().GetField("savePath",
+                BindingFlags.NonPublic | BindingFlags.Instance).GetValue(storage);
+            var path = Platform.IO.Path.Combine((string)rawPath, _currentSlot);
+
+            path = Platform.IO.Path.Combine(path, "archipelago.json");
+            if (File.Exists(path))
+            {
+                using (StreamReader reader = new StreamReader(path))
+                {
+                    var data = JsonConvert.DeserializeObject<APData>(reader.ReadToEnd());
+
+                    APState.next_item_index = data.index;
+                    APState.host_name = data.host_name;
+                    APState.slot_name = data.slot_name;
+                    APState.password = data.password;
+
+                    if (APState.Connect())
+                    {
+                        APState.Session.Locations.CompleteLocationChecks(data.@checked);
+                    }
+                }
+            }
+            // compat handling, remove later
+            else if (APState.archipelago_indexes.ContainsKey(_currentSlot))
             {
                 APState.next_item_index = APState.archipelago_indexes[_currentSlot];
             }
@@ -914,49 +983,6 @@ namespace Archipelago
                     }
                 }
             }
-        }
-    }
-
-    [HarmonyPatch(typeof(SaveLoadManager.GameInfo))]
-    [HarmonyPatch("SaveIntoCurrentSlot")]
-    internal class GameInfo_SaveIntoCurrentSlot_Patch
-    {
-        [HarmonyPrefix]
-        public static bool SaveIntoCurrentSlot(SaveLoadManager.GameInfo info)
-        {
-            var SaveFile_method = typeof(SaveLoadManager.GameInfo).GetMethod("SaveFile", BindingFlags.NonPublic | BindingFlags.Static);
-            using (MemoryStream memoryStream = new MemoryStream())
-            {
-                string value = JsonUtility.ToJson(info);
-
-                // Hax0rz
-                value = value.Insert(value.Length - 1, ",\"archipelago_item_index\":" + APState.next_item_index.ToString());
-
-                using (StreamWriter streamWriter = new StreamWriter(memoryStream, Encoding.UTF8))
-                {
-                    streamWriter.WriteLine(value);
-                }
-                SaveFile_method.Invoke(null, new object[] { "gameinfo.json", memoryStream.ToArray() });
-            }
-            using (MemoryStream memoryStream2 = new MemoryStream())
-            {
-                var screenshot_member = typeof(SaveLoadManager.GameInfo).GetField("screenshot", BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.GetField | BindingFlags.Instance);
-
-                Texture2D texture2D = (Texture2D)screenshot_member.GetValue(info);
-                if (texture2D != null)
-                {
-                    var thumbnail = MathExtensions.ScaleTexture(texture2D, 200, false, false);
-                    screenshot_member.SetValue(info, thumbnail);
-                    byte[] array = thumbnail.EncodeToJPG(75);
-                    if (array.Length != 0)
-                    {
-                        memoryStream2.Write(array, 0, array.Length);
-                        SaveFile_method.Invoke(null, new object[] { "screenshot.jpg", memoryStream2.ToArray() });
-                    }
-                    UnityEngine.Object.Destroy(texture2D);
-                }
-            }
-            return false;
         }
     }
 
@@ -1021,7 +1047,7 @@ namespace Archipelago
                 if (APState.next_item_index < APState.Session.Items.AllItemsReceived.Count)
                 {
                     APState.unlock(APState.ITEM_CODE_TO_TECHTYPE[
-                        APState.Session.Items.AllItemsReceived[APState.next_item_index].Item
+                        APState.Session.Items.AllItemsReceived[(int)APState.next_item_index].Item
                     ]);
                     APState.next_item_index++;
                     // We only do x at a time. To not crowd the on screen log/events too fast

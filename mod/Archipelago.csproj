@@ -21,6 +21,12 @@
     <Reference Include="Newtonsoft.Json">
       <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\Newtonsoft.Json.dll</HintPath>
     </Reference>
+    <Reference Include="PlatformIODefault">
+      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\PlatformIODefault.dll</HintPath>
+    </Reference>
+    <Reference Include="PlatformUtilsDefault">
+      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\PlatformUtilsDefault.dll</HintPath>
+    </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="SMLHelper">
       <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\QMods\Modding Helper\SMLHelper.dll</HintPath>
