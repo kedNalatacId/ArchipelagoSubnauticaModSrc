@@ -77,6 +77,7 @@ namespace Archipelago
                     APState.TrackedFishCount = remaining_fish.Count;
                     if (APState.TrackedFishCount != 0)
                     {
+                        remaining_fish.Sort();
                         var display_fish = new List<string>();
                         for (int i = 0; i < Math.Min(APState.TrackedFishCount, maxFish); i++)
                         {
