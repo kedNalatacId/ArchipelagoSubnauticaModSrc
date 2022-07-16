@@ -117,7 +117,7 @@ namespace Archipelago
                 if (APState.TrackedFishCount > 0)
                 {
                     GUI.Label(new Rect(16, 56, 1000, 22), 
-                        "Fish Left: "+APState.TrackedFishCount + ". Such as: "+APState.TrackedFish);
+                        "Fish left: "+APState.TrackedFishCount + ". Such as: "+APState.TrackedFish);
                 }
             }
 
