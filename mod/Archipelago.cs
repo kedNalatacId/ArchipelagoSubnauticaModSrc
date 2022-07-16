@@ -236,25 +236,6 @@ namespace Archipelago
             
             if (APState.Silent)
             {
-                PDAEncyclopedia.AddAllEntries();
-                var data = new Dictionary<string, string>();
-            
-                foreach (var ency_entry in PDAEncyclopedia.Serialize())
-                {
-                    if (PDAEncyclopedia.GetEntryData(ency_entry.Key, out PDAEncyclopedia.EntryData entryData))
-                    {
-                        
-                        var key1 = string.Format("Ency_{0}", (object) entryData.key);
-                        var title = Language.main.Get(key1);
-                        if (!data.ContainsKey(title))
-                        {
-                            data.Add(title, ency_entry.Key);
-                        }
-                    }
-                
-                }
-                var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(data));
-                Platform.IO.File.WriteAllBytes("encyclopdia.json", bytes);
                 Debug.Log("Muted Archipelago chat.");
                 ErrorMessage.AddMessage("Muted Archipelago chat.");
             }
