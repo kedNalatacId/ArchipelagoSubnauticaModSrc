@@ -34,6 +34,7 @@ namespace Archipelago
             { "infected", "Infection_Progress4" },
         };
 
+        public static HashSet<string> scannable = new HashSet<string>();
         public static int[] AP_VERSION = new int[] { 0, 3, 3 };
         public static APData ServerData = new APData();
 
@@ -50,6 +51,9 @@ namespace Archipelago
         public static string GoalEvent = "";
         public static bool Silent = false;
         public static Thread TrackerProcessing;
+        public static long TrackedLocationsCount = 0;
+        public static long TrackedFishCount = 0;
+        public static string TrackedFish = "";
         public static long TrackedLocation;
         public static string TrackedLocationName;
         public static float TrackedDistance;
@@ -150,6 +154,8 @@ namespace Archipelago
             TechType.BaseFiltrationMachine
         };
 
+        public static Dictionary<string, long> Encyclopdia;
+
         public static HashSet<TechType> TechFragmentsToDestroy = new HashSet<TechType>();
 
 #if DEBUG
@@ -205,7 +211,6 @@ namespace Archipelago
                 var reader = File.OpenText("QMods/Archipelago/locations.json");
                 var content = reader.ReadToEnd();
                 var data = JsonConvert.DeserializeObject<Dictionary<int, Dictionary<string, float>>>(content);
-                
                 reader.Close();
 
                 foreach (var locationJson in data)
@@ -220,6 +225,14 @@ namespace Archipelago
                     );
                     LOCATIONS.Add(location.ID, location);
                 }
+            }
+            // Load encyclopedia.json
+            {
+                var reader = File.OpenText("QMods/Archipelago/encyclopedia.json");
+                var content = reader.ReadToEnd();
+                Encyclopdia = JsonConvert.DeserializeObject<Dictionary<string, long>>(content);
+                reader.Close();
+
             }
             // launch thread
             TrackerProcessing = new Thread(TrackerThread.DoWork);
@@ -272,10 +285,11 @@ namespace Archipelago
                             vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
                         }
                     }
-                    else
-                    {
-                        Debug.LogError("Cast Failure");
-                    }
+
+                    //if (loginSuccess.SlotData["creature_scans"] is JArray creatures)
+                    //{
+                    //    
+                    //}
                 }
             }
             else if (loginResult is LoginFailure loginFailure)
@@ -380,6 +394,7 @@ namespace Archipelago
 
             if (closest_id != -1)
             {
+                ServerData.@checked.Add(closest_id);
                 Session.Locations.CompleteLocationChecks(closest_id);
                 return true;
             }

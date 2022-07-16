@@ -106,15 +106,19 @@ namespace Archipelago
                 {
                     GUI.Label(new Rect(16, 36, 1000, 20), 
                         "Locations left: " +
-                        APState.Session.Locations.AllMissingLocations.Count +
-                        ". Closest is " + (int)APState.TrackedDistance + " m away, named " + 
+                        APState.TrackedLocationsCount +
+                        ". Closest is " + (long)APState.TrackedDistance + " m away, named " + 
                         APState.TrackedLocationName);
                     // TODO: find a way to display this
                     //GUI.Label(new Rect(16, 56, 1000, 20), 
                     //    APState.TrackedAngle.ToString());
                 }
-                
 
+                if (APState.TrackedFishCount > 0)
+                {
+                    GUI.Label(new Rect(16, 56, 1000, 22), 
+                        "Fish Left: "+APState.TrackedFishCount + ". Such as: "+APState.TrackedFish);
+                }
             }
 
 #if DEBUG
@@ -232,6 +236,25 @@ namespace Archipelago
             
             if (APState.Silent)
             {
+                PDAEncyclopedia.AddAllEntries();
+                var data = new Dictionary<string, string>();
+            
+                foreach (var ency_entry in PDAEncyclopedia.Serialize())
+                {
+                    if (PDAEncyclopedia.GetEntryData(ency_entry.Key, out PDAEncyclopedia.EntryData entryData))
+                    {
+                        
+                        var key1 = string.Format("Ency_{0}", (object) entryData.key);
+                        var title = Language.main.Get(key1);
+                        if (!data.ContainsKey(title))
+                        {
+                            data.Add(title, ency_entry.Key);
+                        }
+                    }
+                
+                }
+                var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(data));
+                Platform.IO.File.WriteAllBytes("encyclopdia.json", bytes);
                 Debug.Log("Muted Archipelago chat.");
                 ErrorMessage.AddMessage("Muted Archipelago chat.");
             }
@@ -445,10 +468,15 @@ namespace Archipelago
                 using (StreamReader reader = new StreamReader(path))
                 {
                     APState.ServerData = JsonConvert.DeserializeObject<APData>(reader.ReadToEnd());
-
-                    if (APState.Connect())
+                    
+                    if (APState.Connect() && APState.ServerData.@checked != null)
                     {
-                        APState.Session.Locations.CompleteLocationChecks(APState.ServerData.@checked);
+                        ErrorMessage.AddError(APState.ServerData.@checked.Count().ToString());
+                        APState.Session.Locations.CompleteLocationChecks(APState.ServerData.@checked.ToArray());
+                    }
+                    else
+                    {
+                        ErrorMessage.AddError("Null Checked");
                     }
                 }
             }
@@ -669,7 +697,7 @@ namespace Archipelago
     internal class RocketConstructor_StartRocketConstruction_Patch
     {
         [HarmonyPrefix]
-        static public bool StartRocketConstruction(RocketConstructor __instance)
+        public static bool StartRocketConstruction(RocketConstructor __instance)
         {
             TechType currentStageTech = __instance.rocket.GetCurrentStageTech();
             if (!KnownTech.Contains(currentStageTech))
@@ -687,7 +715,7 @@ namespace Archipelago
     internal class UnlockBlueprintData_Trigger_Patch
     {
         [HarmonyPrefix]
-        static public bool PreventRadiationSuitUnlock(Story.UnlockBlueprintData __instance)
+        public static bool PreventRadiationSuitUnlock(Story.UnlockBlueprintData __instance)
         {
             if (__instance.techType == TechType.RadiationSuit)
             {
@@ -718,6 +746,19 @@ namespace Archipelago
             if (key == APState.GoalEvent)
             {
                 APState.send_completion();
+            }
+        }
+    }
+    [HarmonyPatch(typeof(PDAEncyclopedia), "Add", typeof(string), typeof(PDAEncyclopedia.Entry), typeof(bool))]
+    internal class CustomPDA
+    {
+        [HarmonyPostfix]
+        public static void Add(string key, PDAEncyclopedia.Entry entry)
+        {
+            if (APState.Encyclopdia.TryGetValue(key, out var id))
+            {
+                APState.ServerData.@checked.Add(id);
+                APState.Session.Locations.CompleteLocationChecks(id);
             }
         }
     }
