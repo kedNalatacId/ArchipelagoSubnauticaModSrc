@@ -452,7 +452,6 @@ namespace Archipelago
                     
                     if (APState.Connect() && APState.ServerData.@checked != null)
                     {
-                        ErrorMessage.AddError(APState.ServerData.@checked.Count().ToString());
                         APState.Session.Locations.CompleteLocationChecks(APState.ServerData.@checked.ToArray());
                     }
                     else

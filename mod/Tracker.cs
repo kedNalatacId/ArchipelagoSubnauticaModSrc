@@ -43,10 +43,10 @@ namespace Archipelago
                     }
 
                     APState.TrackedLocationsCount = tracking_count;
+                    APState.TrackedDistance = closestDist;
                     if (closestID != APState.TrackedLocation)
                     {
                         APState.TrackedLocation = closestID;
-                        APState.TrackedDistance = closestDist;
                         APState.TrackedLocationName =
                             APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation);
                         Vector3 directionVector = APState.LOCATIONS[closestID].Position - Player.main.gameObject.transform.position;
@@ -82,7 +82,6 @@ namespace Archipelago
                         for (int i = 0; i < Math.Min(APState.TrackedFishCount, maxFish); i++)
                         {
                             display_fish.Add(APState.Session.Locations.GetLocationNameFromId(remaining_fish[i]));
-                            
                         }
                         APState.TrackedFish = String.Join(", ", display_fish);
                     }
