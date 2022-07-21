@@ -4,12 +4,12 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using Archipelago.MultiClient.Net;
+using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
 using Oculus.Newtonsoft.Json;
 using Oculus.Newtonsoft.Json.Linq;
 using UnityEngine;
-using WebSocketSharp;
 
 namespace Archipelago
 {
@@ -37,10 +37,10 @@ namespace Archipelago
         public static HashSet<string> scannable = new HashSet<string>();
         public static int[] AP_VERSION = new int[] { 0, 3, 3 };
         public static APData ServerData = new APData();
-
-        public static Dictionary<int, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<int, TechType>();
+        public static DeathLinkService DeathLinkService = null;
+        public static Dictionary<long, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<long, TechType>();
         public static Dictionary<long, Location> LOCATIONS = new Dictionary<long, Location>();
-
+        public static bool DeathLinkKilling = false; // indicates player is currently getting DeathLinked
         public static Dictionary<string, int> archipelago_indexes = new Dictionary<string, int>();
         public static float unlock_dequeue_timeout = 0.0f;
         public static List<string> message_queue = new List<string>();
@@ -259,13 +259,14 @@ namespace Archipelago
             Session.Socket.PacketReceived += Session_PacketReceived;
             Session.Socket.ErrorReceived += Session_ErrorReceived;
             Session.Socket.SocketClosed += Session_SocketClosed;
+
             HashSet<TechType> vanillaTech = new HashSet<TechType>();
             
             LoginResult loginResult = Session.TryConnectAndLogin(
                 "Subnautica", 
                 ServerData.slot_name,
-                new Version(AP_VERSION[0], AP_VERSION[1], AP_VERSION[2]), 
                 ItemsHandlingFlags.AllItems, 
+                new Version(AP_VERSION[0], AP_VERSION[1], AP_VERSION[2]),
                 null, 
                 "",
                 ServerData.password == "" ? null : ServerData.password);
@@ -285,12 +286,20 @@ namespace Archipelago
                             vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
                         }
                     }
-
+                    
                     //if (loginSuccess.SlotData["creature_scans"] is JArray creatures)
                     //{
                     //    
                     //}
                 }
+
+                if (loginSuccess.SlotData.TryGetValue("deathlink", out var deathlink))
+                {
+                    var bdeathlink = (int)deathlink;
+                    ServerData.death_link = bdeathlink > 0;
+                }
+                set_deathlink();
+
             }
             else if (loginResult is LoginFailure loginFailure)
             {
@@ -309,23 +318,38 @@ namespace Archipelago
             return loginResult.Successful;
         }
         
-        public static void Session_SocketClosed(CloseEventArgs args)
+        public static void Session_SocketClosed(string reason)
         {
-            message_queue.Add("Connection to Archipelago lost: " + args.Reason);
+            message_queue.Add("Connection to Archipelago lost: " + reason);
+            Debug.LogError("Connection to Archipelago lost: " + reason);
+            Disconnect();
         }
         public static void Session_ErrorReceived(Exception e, string message)
         {
             Debug.LogError(message);
             if (e != null) Debug.LogError(e.ToString());
-            if (Session != null)
-            {
-                Session.Socket.Disconnect();
-                Session = null;
-                Authenticated = false;
-                state = State.Menu;
-            }
+            Disconnect();
         }
 
+        public static void Disconnect()
+        {
+            if (Session != null && Session.Socket != null)
+            {
+                Session.Socket.Disconnect();
+            }
+            Session = null;
+            Authenticated = false;
+            state = State.Menu;
+        }
+        public static void DeathLinkReceived(DeathLink deathLink)
+        {
+            if (!(bool) (UnityEngine.Object) Player.main.liveMixin)
+                return;
+            Debug.Log("Received DeathLink");
+            DeathLinkKilling = true;
+            Player.main.liveMixin.Kill();
+            message_queue.Add(deathLink.Cause);
+        }
         public static void Session_PacketReceived(ArchipelagoPacketBase packet)
         {
             Debug.Log("Incoming Packet: " + packet.PacketType.ToString());
@@ -403,7 +427,7 @@ namespace Archipelago
             Debug.LogError("Tried to check unregistered Location at: " + position);
             foreach (var location in LOCATIONS)
             {
-                var dist = Vector3.Distance(location.Value.position, position);
+                var dist = Vector3.Distance(location.Value.Position, position);
                 if (dist < closestDist)
                 {
                     closestDist = dist;
@@ -468,6 +492,32 @@ namespace Archipelago
             }
         }
 
+        public static void set_deathlink()
+        {
+            if (ServerData.death_link)
+            {
+                if (DeathLinkService == null)
+                {
+                    DeathLinkService = Session.CreateDeathLinkServiceAndEnable();
+                    DeathLinkService.OnDeathLinkReceived += DeathLinkReceived;
+                }
+                else
+                {
+                    var stringList = new List<string>(Session.ConnectionInfo.Tags.Length + 1);
+                    stringList.AddRange(Session.ConnectionInfo.Tags);
+                    stringList.Add("DeathLink");
+                    Session.UpdateConnectionOptions(stringList.ToArray(), Session.ConnectionInfo.ItemsHandlingFlags);
+                }
+            }
+            else
+            {
+                var stringList = new List<string>(Session.ConnectionInfo.Tags.Length);
+                stringList.AddRange(Session.ConnectionInfo.Tags);
+                stringList.Remove("DeathLink");
+                Session.UpdateConnectionOptions(stringList.ToArray(), Session.ConnectionInfo.ItemsHandlingFlags);
+            }
+        }
+        
         public static void send_completion()
         {
             var statusUpdatePacket = new StatusUpdatePacket();

@@ -9,5 +9,6 @@ namespace Archipelago
         public string slot_name;
         public string password;
         public HashSet<long> @checked = new HashSet<long>();
+        public bool death_link = false;
     }
 }

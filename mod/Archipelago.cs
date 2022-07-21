@@ -1,13 +1,13 @@
 ﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using Archipelago.MultiClient.Net.Packets;
 using System.Text;
+using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Oculus.Newtonsoft.Json;
 using Debug = UnityEngine.Debug;
 using File = System.IO.File;
@@ -204,6 +204,7 @@ namespace Archipelago
         {
             DevConsole.RegisterConsoleCommand(this, "say", false, false);
             DevConsole.RegisterConsoleCommand(this, "silent", false, false);
+            DevConsole.RegisterConsoleCommand(this, "deathlink", false, false);
         }
 
         private void OnConsoleCommand_say(NotificationCenter.Notification n)
@@ -243,6 +244,21 @@ namespace Archipelago
             {
                 Debug.Log("Enabled Archipelago chat.");
                 ErrorMessage.AddMessage("Enabled Archipelago chat.");
+            }
+        }
+        private void OnConsoleCommand_deathlink(NotificationCenter.Notification n)
+        {
+            APState.ServerData.death_link = !APState.ServerData.death_link;
+            
+            if (APState.ServerData.death_link)
+            {
+                Debug.Log("Enabled DeathLink.");
+                ErrorMessage.AddMessage("Enabled DeathLink.");
+            }
+            else
+            {
+                Debug.Log("Disabled DeathLink.");
+                ErrorMessage.AddMessage("Disabled DeathLink.");
             }
         }
     }
@@ -582,7 +598,7 @@ namespace Archipelago
                 if (APState.ServerData.index < APState.Session.Items.AllItemsReceived.Count)
                 {
                     APState.unlock(APState.ITEM_CODE_TO_TECHTYPE[
-                        APState.Session.Items.AllItemsReceived[(int)APState.ServerData.index].Item
+                        APState.Session.Items.AllItemsReceived[Convert.ToInt32(APState.ServerData.index)].Item
                     ]);
                     APState.ServerData.index++;
                     // We only do x at a time. To not crowd the on screen log/events too fast
@@ -740,6 +756,23 @@ namespace Archipelago
                 APState.ServerData.@checked.Add(id);
                 APState.Session.Locations.CompleteLocationChecks(id);
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(Player), "OnKill")]
+    internal class CustomPlayerKill
+    {
+        [HarmonyPostfix]
+        public static void PlayerDeath(DamageType damageType)
+        {
+            if (!APState.DeathLinkKilling)
+            {
+                if (APState.ServerData.death_link)
+                {
+                    APState.DeathLinkService.SendDeathLink(new DeathLink(APState.ServerData.slot_name));
+                }
+            }
+            APState.DeathLinkKilling = false;
         }
     }
 }
