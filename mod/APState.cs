@@ -89,7 +89,6 @@ namespace Archipelago
             TechType.BaseObservatoryFragment,
             TechType.BaseWaterParkFragment,
             TechType.RadioFragment,
-            TechType.BaseRoomFragment,
             TechType.BaseBulkheadFragment,
             TechType.BatteryChargerFragment,
             TechType.PowerCellChargerFragment,
@@ -494,27 +493,19 @@ namespace Archipelago
 
         public static void set_deathlink()
         {
+            if (DeathLinkService == null)
+            {
+                DeathLinkService = Session.CreateDeathLinkService();
+                DeathLinkService.OnDeathLinkReceived += DeathLinkReceived;
+            }
+            
             if (ServerData.death_link)
             {
-                if (DeathLinkService == null)
-                {
-                    DeathLinkService = Session.CreateDeathLinkServiceAndEnable();
-                    DeathLinkService.OnDeathLinkReceived += DeathLinkReceived;
-                }
-                else
-                {
-                    var stringList = new List<string>(Session.ConnectionInfo.Tags.Length + 1);
-                    stringList.AddRange(Session.ConnectionInfo.Tags);
-                    stringList.Add("DeathLink");
-                    Session.UpdateConnectionOptions(stringList.ToArray(), Session.ConnectionInfo.ItemsHandlingFlags);
-                }
+                DeathLinkService.EnableDeathLink();
             }
             else
             {
-                var stringList = new List<string>(Session.ConnectionInfo.Tags.Length);
-                stringList.AddRange(Session.ConnectionInfo.Tags);
-                stringList.Remove("DeathLink");
-                Session.UpdateConnectionOptions(stringList.ToArray(), Session.ConnectionInfo.ItemsHandlingFlags);
+                DeathLinkService.DisableDeathLink();
             }
         }
         

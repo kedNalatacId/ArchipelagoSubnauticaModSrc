@@ -249,6 +249,7 @@ namespace Archipelago
         private void OnConsoleCommand_deathlink(NotificationCenter.Notification n)
         {
             APState.ServerData.death_link = !APState.ServerData.death_link;
+            APState.set_deathlink();
             
             if (APState.ServerData.death_link)
             {
