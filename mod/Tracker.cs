@@ -44,9 +44,9 @@ namespace Archipelago
 
                     APState.TrackedLocationsCount = tracking_count;
                     APState.TrackedDistance = closestDist;
-                    if (closestID != APState.TrackedLocation)
+                    APState.TrackedLocation = closestID;
+                    if (closestID != -1)
                     {
-                        APState.TrackedLocation = closestID;
                         APState.TrackedLocationName =
                             APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation);
                         Vector3 directionVector = APState.LOCATIONS[closestID].Position - Player.main.gameObject.transform.position;
@@ -63,27 +63,31 @@ namespace Archipelago
                 if (APState.Session != null)
                 {
 
-                    var remaining_fish = new List<long>();
-                    
+                    var remainingFish = new List<long>();
+
                     foreach (var locID in APState.Session.Locations.AllMissingLocations)
                     {
                         // Check that it's a static location
                         if (locID > scanCutOff)
                         {
-                            remaining_fish.Add(locID);
+                            remainingFish.Add(locID);
                         }
                     }
 
-                    APState.TrackedFishCount = remaining_fish.Count;
+                    APState.TrackedFishCount = remainingFish.Count;
                     if (APState.TrackedFishCount != 0)
                     {
-                        remaining_fish.Sort();
+                        remainingFish.Sort();
                         var display_fish = new List<string>();
                         for (int i = 0; i < Math.Min(APState.TrackedFishCount, maxFish); i++)
                         {
-                            display_fish.Add(APState.Session.Locations.GetLocationNameFromId(remaining_fish[i]));
+                            display_fish.Add(APState.Session.Locations.GetLocationNameFromId(remainingFish[i]).Replace(" Scan", ""));
                         }
                         APState.TrackedFish = String.Join(", ", display_fish);
+                    }
+                    else
+                    {
+                        APState.TrackedFish = "";
                     }
                 }
                 else

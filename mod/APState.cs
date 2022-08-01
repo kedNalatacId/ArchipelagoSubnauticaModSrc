@@ -54,7 +54,7 @@ namespace Archipelago
         public static long TrackedLocationsCount = 0;
         public static long TrackedFishCount = 0;
         public static string TrackedFish = "";
-        public static long TrackedLocation;
+        public static long TrackedLocation = -1;
         public static string TrackedLocationName;
         public static float TrackedDistance;
         public static float TrackedAngle;
