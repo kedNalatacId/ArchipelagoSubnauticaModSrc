@@ -35,7 +35,7 @@ namespace Archipelago
         };
 
         public static HashSet<string> scannable = new HashSet<string>();
-        public static int[] AP_VERSION = new int[] { 0, 3, 3 };
+        public static int[] AP_VERSION = new int[] { 0, 3, 4 };
         public static APData ServerData = new APData();
         public static DeathLinkService DeathLinkService = null;
         public static Dictionary<long, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<long, TechType>();

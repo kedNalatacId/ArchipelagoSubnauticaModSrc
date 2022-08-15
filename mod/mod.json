@@ -1,8 +1,8 @@
 {
     "Id": "Archipelago",
     "DisplayName": "Archipelago",
-    "Author": "Daivuk",
-    "Version": "1.0",
+    "Author": "Berserker",
+    "Version": "1.1.1",
     "Enable": true,
     "Game": "Subnautica",
     "AssemblyName": "Archipelago.dll",
