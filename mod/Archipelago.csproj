@@ -10,7 +10,7 @@
       <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\BepInEx\core\0Harmony.dll</HintPath>
     </Reference>
     <Reference Include="Archipelago.MultiClient.Net">
-      <HintPath>..\..\Archipelago.MultiClient.Net\Archipelago.MultiClient.Net\bin\Debug\net472\Archipelago.MultiClient.Net.dll</HintPath>
+      <HintPath>special\Archipelago.MultiClient.Net.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\Assembly-CSharp.dll</HintPath>
@@ -19,7 +19,7 @@
       <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\Newtonsoft.Json.dll</HintPath>
+      <HintPath>special\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="PlatformIODefault">
       <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\PlatformIODefault.dll</HintPath>
@@ -56,7 +56,7 @@
       <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
     <Reference Include="websocket-sharp">
-      <HintPath>..\..\Archipelago.MultiClient.Net\Archipelago.MultiClient.Net\bin\Debug\net472\websocket-sharp.dll</HintPath>
+      <HintPath>special\websocket-sharp.dll</HintPath>
     </Reference>
   </ItemGroup>
 

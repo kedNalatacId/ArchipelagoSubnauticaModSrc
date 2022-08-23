@@ -120,7 +120,6 @@ namespace Archipelago
             TechType.ExosuitGrapplingArmFragment,
             TechType.ExosuitTorpedoArmFragment,
             TechType.ExosuitClawArmFragment,
-            TechType.PrecursorKey_PurpleFragment,
             // non-destructive scanning
             TechType.BaseRoom,
             TechType.FarmingTray,
@@ -286,10 +285,6 @@ namespace Archipelago
                         }
                     }
                     
-                    //if (loginSuccess.SlotData["creature_scans"] is JArray creatures)
-                    //{
-                    //    
-                    //}
                 }
 
                 if (loginSuccess.SlotData.TryGetValue("deathlink", out var deathlink))
