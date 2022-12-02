@@ -50,9 +50,6 @@ namespace Archipelago
             { "Sparse Reef", new Vector3(-787, -208, -713) },
             { "Underwater Islands", new Vector3(-102, -179, 860) }
         };
-#endif
-
-#if DEBUG
         void Update()
         {
             if (mouse_target_desc != "")
@@ -194,11 +191,6 @@ namespace Archipelago
         {
             RegisterCmds();
         }
-
-        //public void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-        //{
-        //    RegisterSayCmd();
-        //}
 
         public void RegisterCmds()
         {
@@ -754,8 +746,7 @@ namespace Archipelago
         {
             if (APState.Encyclopdia.TryGetValue(key, out var id))
             {
-                APState.ServerData.@checked.Add(id);
-                APState.Session.Locations.CompleteLocationChecks(id);
+                APState.SendLocID(id);
             }
         }
     }

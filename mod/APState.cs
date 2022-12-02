@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
@@ -35,7 +36,7 @@ namespace Archipelago
         };
 
         public static HashSet<string> scannable = new HashSet<string>();
-        public static int[] AP_VERSION = new int[] { 0, 3, 5 };
+        public static int[] AP_VERSION = new int[] { 0, 3, 6 };
         public static APData ServerData = new APData();
         public static DeathLinkService DeathLinkService = null;
         public static Dictionary<long, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<long, TechType>();
@@ -346,7 +347,7 @@ namespace Archipelago
         }
         public static void Session_PacketReceived(ArchipelagoPacketBase packet)
         {
-            Debug.Log("Incoming Packet: " + packet.PacketType.ToString());
+            Debug.Log("Incoming Packet: " + packet.PacketType);
             switch (packet.PacketType)
             {
                 case ArchipelagoPacketType.Print:
@@ -412,8 +413,7 @@ namespace Archipelago
 
             if (closest_id != -1)
             {
-                ServerData.@checked.Add(closest_id);
-                Session.Locations.CompleteLocationChecks(closest_id);
+                SendLocID(closest_id);
                 return true;
             }
 #if DEBUG
@@ -432,6 +432,12 @@ namespace Archipelago
             Debug.LogError("Could it be Location ID " + closest_id + " with a distance of "+closestDist + "?");
 #endif
             return false;
+        }
+
+        public static void SendLocID(long id)
+        {
+            ServerData.@checked.Add(id);
+            Task.Run(() => {Session.Locations.CompleteLocationChecksAsync(id); }).ConfigureAwait(false);
         }
 
         public static void unlock(TechType techType)
@@ -469,12 +475,16 @@ namespace Archipelago
                         int totalFragments = entryData.totalFragments;
                         if (totalFragments > 1)
                         {
-                            float num2 = (float)entry.unlocked / (float)totalFragments;
-                            float arg = (float)Mathf.RoundToInt(num2 * 100f);
-                            ErrorMessage.AddError(Language.main.GetFormat<string, float, int, int>("ScannerInstanceScanned", Language.main.Get(entry.techType.AsString(false)), arg, entry.unlocked, totalFragments));
+                            float num2 = entry.unlocked / (float)totalFragments;
+                            float arg = Mathf.RoundToInt(num2 * 100f);
+                            ErrorMessage.AddError(Language.main.GetFormat(
+                                "ScannerInstanceScanned", Language.main.Get(entry.techType.AsString()), 
+                                arg, entry.unlocked, totalFragments));
                         }
 
-                        MethodInfo methodNotifyProgress = typeof(PDAScanner).GetMethod("NotifyProgress", BindingFlags.NonPublic | BindingFlags.Static, null, new Type[] { typeof(PDAScanner.Entry) }, null);
+                        MethodInfo methodNotifyProgress = typeof(PDAScanner).GetMethod(
+                            "NotifyProgress", BindingFlags.NonPublic | BindingFlags.Static, null,
+                            new Type[] { typeof(PDAScanner.Entry) }, null);
                         methodNotifyProgress.Invoke(null, new object[] { entry });
                     }
                 }
