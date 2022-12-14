@@ -7,10 +7,12 @@ using System.Threading.Tasks;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
+using Archipelago.MultiClient.Net.Helpers;
 using Archipelago.MultiClient.Net.Packets;
-using Oculus.Newtonsoft.Json;
-using Oculus.Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
+using Logger = BepInEx.Logging.Logger;
 
 namespace Archipelago
 {
@@ -59,6 +61,7 @@ namespace Archipelago
         public static string TrackedLocationName;
         public static float TrackedDistance;
         public static float TrackedAngle;
+        public static bool JSONLoaded = false;
 
         public static ArchipelagoSession Session;
         public static ArchipelagoUI ArchipelagoUI = null;
@@ -105,7 +108,7 @@ namespace Archipelago
             TechType.AquariumFragment,
             TechType.ReinforcedDiveSuitFragment,
             TechType.RadiationSuitFragment,
-            TechType.StillsuitFragment,
+            TechType.WaterFiltrationSuitFragment,
             TechType.BuilderFragment,
             TechType.LEDLightFragment,
             TechType.TechlightFragment,
@@ -193,9 +196,10 @@ namespace Archipelago
 
         public static void Init()
         {
+            JSONLoaded = true;
             // Load items.json
             {
-                var reader = File.OpenText("QMods/Archipelago/items.json");
+                var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/items.json");
                 var content = reader.ReadToEnd();
                 reader.Close();
                 var data = JsonConvert.DeserializeObject<Dictionary<int, string>>(content);
@@ -207,7 +211,7 @@ namespace Archipelago
             }
             // Load locations.json
             {
-                var reader = File.OpenText("QMods/Archipelago/locations.json");
+                var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/locations.json");
                 var content = reader.ReadToEnd();
                 var data = JsonConvert.DeserializeObject<Dictionary<int, Dictionary<string, float>>>(content);
                 reader.Close();
@@ -227,11 +231,10 @@ namespace Archipelago
             }
             // Load encyclopedia.json
             {
-                var reader = File.OpenText("QMods/Archipelago/encyclopedia.json");
+                var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/encyclopedia.json");
                 var content = reader.ReadToEnd();
                 Encyclopdia = JsonConvert.DeserializeObject<Dictionary<string, long>>(content);
                 reader.Close();
-
             }
             // launch thread
             TrackerProcessing = new Thread(TrackerThread.DoWork);
@@ -255,7 +258,7 @@ namespace Archipelago
             }
 
             Session = ArchipelagoSessionFactory.CreateSession(url, port);
-            Session.Socket.PacketReceived += Session_PacketReceived;
+            Session.MessageLog.OnMessageReceived += Session_MessageReceived;
             Session.Socket.ErrorReceived += Session_ErrorReceived;
             Session.Socket.SocketClosed += Session_SocketClosed;
 
@@ -313,13 +316,17 @@ namespace Archipelago
             return loginResult.Successful;
         }
         
-        public static void Session_SocketClosed(string reason)
+        static void Session_SocketClosed(string reason)
         {
             message_queue.Add("Connection to Archipelago lost: " + reason);
             Debug.LogError("Connection to Archipelago lost: " + reason);
             Disconnect();
         }
-        public static void Session_ErrorReceived(Exception e, string message)
+        static void Session_MessageReceived(LogMessage message)
+        {
+            message_queue.Add(message.ToString());
+        }
+        static void Session_ErrorReceived(Exception e, string message)
         {
             Debug.LogError(message);
             if (e != null) Debug.LogError(e.ToString());
@@ -345,58 +352,7 @@ namespace Archipelago
             Player.main.liveMixin.Kill();
             message_queue.Add(deathLink.Cause);
         }
-        public static void Session_PacketReceived(ArchipelagoPacketBase packet)
-        {
-            Debug.Log("Incoming Packet: " + packet.PacketType);
-            switch (packet.PacketType)
-            {
-                case ArchipelagoPacketType.Print:
-                {
-                    if (!Silent)
-                    {
-                        var p = packet as PrintPacket;
-                        message_queue.Add(p.Text);
-                    }
-                    break;
-                }
 
-                case ArchipelagoPacketType.PrintJSON:
-                {
-                    if (!Silent)
-                    {
-                        var p = packet as PrintJsonPacket;
-                        string text = "";
-                        foreach (var messagePart in p.Data)
-                        {
-                            switch (messagePart.Type)
-                            {
-                                case "player_id":
-                                    text += int.TryParse(messagePart.Text, out var playerSlot)
-                                        ? Session.Players.GetPlayerAlias(playerSlot) ?? $"Slot: {playerSlot}"
-                                        : messagePart.Text;
-                                    break;
-                                case "item_id":
-                                    text += int.TryParse(messagePart.Text, out var itemId)
-                                        ? Session.Items.GetItemName(itemId) ?? $"Item: {itemId}"
-                                        : messagePart.Text;
-                                    break;
-                                case "location_id":
-                                    text += int.TryParse(messagePart.Text, out var locationId)
-                                        ? Session.Locations.GetLocationNameFromId(locationId) ?? $"Location: {locationId}"
-                                        : messagePart.Text;
-                                    break;
-                                default:
-                                    text += messagePart.Text;
-                                    break;
-                            }
-                        }
-                        message_queue.Add(text);
-                    }
-                    break;
-                }
-            }
-        }
-        
         public static bool checkLocation(Vector3 position)
         {
             long closest_id = -1;

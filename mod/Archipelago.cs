@@ -8,7 +8,7 @@ using UnityEngine;
 using Archipelago.MultiClient.Net.Packets;
 using System.Text;
 using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
-using Oculus.Newtonsoft.Json;
+using Newtonsoft.Json;
 using Debug = UnityEngine.Debug;
 using File = System.IO.File;
 
@@ -68,6 +68,10 @@ namespace Archipelago
 
         void OnGUI()
         {
+            if (!APState.JSONLoaded)
+            {
+                APState.Init();
+            }
 #if DEBUG
             GUI.Box(new Rect(0, 0, Screen.width, 120), "");
 #endif
@@ -310,40 +314,15 @@ namespace Archipelago
         }
     }
 
-    // Spawn databoxes with blank item inside
-    [HarmonyPatch(typeof(DataboxSpawner))]
-    [HarmonyPatch("Start")]
-    internal class DataboxSpawner_Start_Patch
-    {
-        [HarmonyPrefix]
-        public static bool ReplaceDataboxContent(DataboxSpawner __instance)
-        {
-            // We make sure to spawn it
-            var databox = UnityEngine.Object.Instantiate<GameObject>(__instance.databoxPrefab, __instance.transform.position, __instance.transform.rotation, __instance.transform.parent);
-
-            // Blank item inside
-            BlueprintHandTarget component = databox.GetComponent<BlueprintHandTarget>();
-            component.unlockTechType = (TechType)20000; // Using TechType.None gives 2 titanium we don't want that
-
-            // Delete the spawner entity
-            UnityEngine.Object.Destroy(__instance.gameObject);
-
-            return false; // Don't call original code!
-        }
-    }
-
     // If databox was already spawned, make sure it's blank
     [HarmonyPatch(typeof(BlueprintHandTarget))]
     [HarmonyPatch("Start")]
     internal class BlueprintHandTarget_Start_Patch
     {
-        public static int uid = 20000;
-
         [HarmonyPrefix]
         public static void ReplaceDataboxContent(BlueprintHandTarget __instance)
         {
-            __instance.unlockTechType = (TechType)uid; // Using TechType.None gives 2 titanium we don't want that
-            uid++;
+            __instance.unlockTechType = (TechType)20000; // Using TechType.None gives 2 titanium we don't want that
         }
     }
 
@@ -546,12 +525,12 @@ namespace Archipelago
                 return false;
             }
 
-            if (IntroVignette.isIntroActive || LaunchRocket.isLaunching)
+            if (LaunchRocket.isLaunching || EscapePod.main.IsPlayingIntroCinematic())
             {
                 return false;
             }
 
-            if (PlayerCinematicController.cinematicModeCount > 0 && Time.time - PlayerCinematicController.cinematicActivityStart <= 30f)
+            if (PlayerCinematicController.cinematicModeCount > 0 && Time.time - PlayerCinematicController.cinematicActivityExpireTime <= 30f)
             {
                 return false;
             }
