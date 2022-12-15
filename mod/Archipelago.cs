@@ -68,10 +68,6 @@ namespace Archipelago
 
         void OnGUI()
         {
-            if (!APState.JSONLoaded)
-            {
-                APState.Init();
-            }
 #if DEBUG
             GUI.Box(new Rect(0, 0, Screen.width, 120), "");
 #endif
@@ -201,6 +197,7 @@ namespace Archipelago
             DevConsole.RegisterConsoleCommand(this, "say", false, false);
             DevConsole.RegisterConsoleCommand(this, "silent", false, false);
             DevConsole.RegisterConsoleCommand(this, "deathlink", false, false);
+            DevConsole.RegisterConsoleCommand(this, "apdebug", false, false);
         }
 
         private void OnConsoleCommand_say(NotificationCenter.Notification n)
@@ -258,6 +255,13 @@ namespace Archipelago
                 ErrorMessage.AddMessage("Disabled DeathLink.");
             }
         }
+
+        private void OnConsoleCommand_apdebug(NotificationCenter.Notification n)
+        {
+            Debug.LogError("Analysis:");
+            string json = JsonConvert.SerializeObject(Player.main.pdaData.analysisTech);
+            Debug.LogError(json);
+        }
     }
 
     // Remove scannable fragments as they spawn, we will unlock them from Databoxes, PDAs and Terminals.
@@ -265,13 +269,11 @@ namespace Archipelago
     [HarmonyPatch("Start")]
     internal class ResourceTracker_Start_Patch
     {
-
         [HarmonyPostfix]
-        public static void RemoveFragment(ResourceTracker __instance)
+        public static void RemoveFragment(ResourceTracker __instance, TechType ___techType)
         {
-            var techTypeMember = typeof(ResourceTracker).GetField("techType", BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.Instance);
-            var techType = (TechType)techTypeMember.GetValue(__instance);
-            if (techType == TechType.Fragment)
+
+            if (___techType == TechType.Fragment)
             {
                 var techTag = __instance.GetComponent<TechTag>();
                 if (techTag != null)
@@ -286,7 +288,7 @@ namespace Archipelago
                     UnityEngine.Object.Destroy(__instance.gameObject); // No techtag, so it's just "fragment", remove it...
                 }
             }
-            else if (APState.TechFragmentsToDestroy.Contains(techType)) // Not fragment, but could be one of the others
+            else if (APState.TechFragmentsToDestroy.Contains(___techType)) // Not fragment, but could be one of the others
             {
                 UnityEngine.Object.Destroy(__instance.gameObject);
             }
@@ -394,6 +396,22 @@ namespace Archipelago
         }
     }
 
+#if DEBUG
+    [HarmonyPatch(typeof(KnownTech))]
+    [HarmonyPatch("Initialize")]
+    internal class PrintCascadeTechs
+    {
+        [HarmonyPostfix]
+        public static void PrintCascade(List<KnownTech.AnalysisTech> ___analysisTech)
+        {
+            foreach (KnownTech.AnalysisTech tech in ___analysisTech)
+            { 
+                Debug.LogError(tech.techType + " -> " + JsonConvert.SerializeObject(tech.unlockTechTypes));
+            }
+        }
+    }
+#endif
+    
     [HarmonyPatch(typeof(MainGameController))]
     [HarmonyPatch("LoadInitialInventoryAsync")]
     internal class MainGameController_LoadInitialInventoryAsync_Patch

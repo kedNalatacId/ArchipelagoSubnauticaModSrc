@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Threading.Tasks;
 using BepInEx;
 using HarmonyLib;
 
@@ -18,7 +19,7 @@ using HarmonyLib;
 // }
 namespace Archipelago
 {
-    [BepInPlugin("Archipelago", "Archipelago", "1.0")]
+    [BepInPlugin("Archipelago", "Archipelago", "1.3.1")]
     public class ArchipelagoPlugin : BaseUnityPlugin
     {
         public static ArchipelagoPlugin Main = null;
@@ -28,7 +29,9 @@ namespace Archipelago
             Main = this;
             var harmony = new Harmony("Archipelago");
             harmony.PatchAll(Assembly.GetExecutingAssembly());
+            APState.Init();
             Logger.LogInfo($"Plugin Archipelago is loaded!");
+            
         }
     }
 }

@@ -12,7 +12,6 @@ using Archipelago.MultiClient.Net.Packets;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
-using Logger = BepInEx.Logging.Logger;
 
 namespace Archipelago
 {
@@ -61,7 +60,6 @@ namespace Archipelago
         public static string TrackedLocationName;
         public static float TrackedDistance;
         public static float TrackedAngle;
-        public static bool JSONLoaded = false;
 
         public static ArchipelagoSession Session;
         public static ArchipelagoUI ArchipelagoUI = null;
@@ -196,7 +194,6 @@ namespace Archipelago
 
         public static void Init()
         {
-            JSONLoaded = true;
             // Load items.json
             {
                 var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/items.json");
@@ -256,7 +253,7 @@ namespace Archipelago
                 url = splits[0];
                 if (!int.TryParse(splits[1], out port)) port = 38281;
             }
-
+            
             Session = ArchipelagoSessionFactory.CreateSession(url, port);
             Session.MessageLog.OnMessageReceived += Session_MessageReceived;
             Session.Socket.ErrorReceived += Session_ErrorReceived;
