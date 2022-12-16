@@ -11,8 +11,8 @@ using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Newtonsoft.Json;
 using Debug = UnityEngine.Debug;
 using File = System.IO.File;
+using Object = System.Object;
 
-// Enforcement Platform button: (362.0, -70.3, 1082.3)
 
 namespace Archipelago
 {
@@ -106,6 +106,11 @@ namespace Archipelago
                         APState.TrackedLocationsCount +
                         ". Closest is " + (long)APState.TrackedDistance + " m away, named " + 
                         APState.TrackedLocationName);
+                    // Databox Hotfix
+                    if (APState.TrackedDistance < 2.0f && APState.TrackedLocationName.Contains("Databox"))
+                    {
+                        APState.SendLocID(APState.TrackedLocation);
+                    }
                     // TODO: find a way to display this
                     //GUI.Label(new Rect(16, 56, 1000, 20), 
                     //    APState.TrackedAngle.ToString());
@@ -258,9 +263,13 @@ namespace Archipelago
 
         private void OnConsoleCommand_apdebug(NotificationCenter.Notification n)
         {
-            Debug.LogError("Analysis:");
-            string json = JsonConvert.SerializeObject(Player.main.pdaData.analysisTech);
-            Debug.LogError(json);
+            //var loc = APState.TrackedLocation;
+            //var loc_data = APState.LOCATIONS[loc];
+            //DevConsole.SendConsoleCommand("warp "+(int)loc_data.Position.x+" "+(int)loc_data.Position.y+" "+(int)loc_data.Position.z);
+            
+            //Debug.LogError("Analysis:");
+            //string json = JsonConvert.SerializeObject(Player.main.pdaData.analysisTech);
+            //Debug.LogError(json);
         }
     }
 
@@ -321,10 +330,16 @@ namespace Archipelago
     [HarmonyPatch("Start")]
     internal class BlueprintHandTarget_Start_Patch
     {
-        [HarmonyPrefix]
+        private static int _counter = 0;
+        private static Object locker = new Object();
+        [HarmonyPrefix] 
         public static void ReplaceDataboxContent(BlueprintHandTarget __instance)
         {
-            __instance.unlockTechType = (TechType)20000; // Using TechType.None gives 2 titanium we don't want that
+            lock (locker)
+            {
+                __instance.unlockTechType = (TechType)20000+_counter; // Using TechType.None gives 2 titanium we don't want that
+                _counter++;
+            }
         }
     }
 
@@ -543,7 +558,7 @@ namespace Archipelago
                 return false;
             }
 
-            if (LaunchRocket.isLaunching || EscapePod.main.IsPlayingIntroCinematic())
+            if (LaunchRocket.isLaunching || (EscapePod.main != null && EscapePod.main.IsPlayingIntroCinematic()))
             {
                 return false;
             }
