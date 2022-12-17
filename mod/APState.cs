@@ -37,7 +37,7 @@ namespace Archipelago
         };
 
         public static HashSet<string> scannable = new HashSet<string>();
-        public static int[] AP_VERSION = new int[] { 0, 3, 6 };
+        public static int[] AP_VERSION = new int[] { 0, 3, 7 };
         public static APData ServerData = new APData();
         public static DeathLinkService DeathLinkService = null;
         public static Dictionary<long, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<long, TechType>();
@@ -272,6 +272,10 @@ namespace Archipelago
 
             if (loginResult is LoginSuccessful loginSuccess)
             {
+                var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
+                var rawPath = storage.GetType().GetField("savePath",
+                    BindingFlags.NonPublic | BindingFlags.Instance).GetValue(storage);
+                ServerData.GetAsLastConnect().WriteToFile(rawPath + "/archipelago_last_connection.json");
                 Authenticated = true;
                 state = State.InGame;
                 if (loginSuccess.SlotData.ContainsKey("goal"))

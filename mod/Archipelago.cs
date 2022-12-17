@@ -121,6 +121,13 @@ namespace Archipelago
                     GUI.Label(new Rect(16, 56, 1000, 22), 
                         "Fish left: "+APState.TrackedFishCount + ". Such as: "+APState.TrackedFish);
                 }
+
+                if (EscapePod.main != null &&
+                    (EscapePod.main.transform.position - Player.main.transform.position).magnitude < 10f)
+                {
+                    GUI.Label(new Rect(16, 76, 1000, 22), 
+                        "Goal: "+APState.Goal);
+                }
             }
 
 #if DEBUG
@@ -624,6 +631,15 @@ namespace Archipelago
             var guiGameobject = new GameObject();
             APState.ArchipelagoUI = guiGameobject.AddComponent<ArchipelagoUI>();
             GameObject.DontDestroyOnLoad(guiGameobject);
+            var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
+            var rawPath = storage.GetType().GetField("savePath",
+                BindingFlags.NonPublic | BindingFlags.Instance).GetValue(storage);
+            Debug.LogError("PathTest:" + rawPath);
+            var lastConnectInfo = APLastConnectInfo.LoadFromFile(rawPath + "/archipelago_last_connection.json");
+            if (lastConnectInfo != null)
+            {
+                APState.ServerData.FillFromLastConnect(lastConnectInfo);
+            }
         }
     }
 
