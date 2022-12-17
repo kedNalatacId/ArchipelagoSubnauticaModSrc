@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using BepInEx;
 using HarmonyLib;
+using UnityEngine;
 
 
 namespace Archipelago
@@ -11,6 +12,9 @@ namespace Archipelago
         public static void Patch()
         {
             APWrapper.Init();
+            Debug.Log($"Plugin Archipelago (" + APWrapper.Version + ") for Server (" 
+                      + APState.AP_VERSION[0] + "." + APState.AP_VERSION[1] + "." + APState.AP_VERSION[2] + 
+                      ") is loaded!");
         }
     }
     //BepInEx Interface
@@ -28,7 +32,7 @@ namespace Archipelago
     //Common interface
     public static class APWrapper
     {
-        public const string Version = "1.3.2";
+        public const string Version = "1.3.3";
         public static void Init()
         {
             // Plugin startup logic
