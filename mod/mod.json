@@ -2,7 +2,7 @@
     "Id": "Archipelago",
     "DisplayName": "Archipelago",
     "Author": "Berserker",
-    "Version": "1.3.2",
+    "Version": "1.3.4",
     "Enable": true,
     "Game": "Subnautica",
     "AssemblyName": "Archipelago.dll",

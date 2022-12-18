@@ -47,8 +47,15 @@
     <PackageReference Include="Archipelago.MultiClient.Net" Version="4.1.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="mod.json" />
+    <Content Include="mod.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="COPY $(TargetPath) D:\SteamLibrary\steamapps\common\Subnautica\BepInEx\plugins\Archipelago\Archipelago.dll&#xD;&#xA;COPY $(TargetDir)Archipelago.MultiClient.Net.dll D:\SteamLibrary\steamapps\common\Subnautica\BepInEx\plugins\Archipelago\Archipelago.MultiClient.Net.dll" />
+    <Exec Command="COPY $(TargetPath) D:\SteamLibrary\steamapps\common\Subnautica\BepInEx\plugins\Archipelago\Archipelago.dll&#xD;&#xA;&#xD;&#xA;COPY $(TargetDir)Archipelago.MultiClient.Net.dll D:\SteamLibrary\steamapps\common\Subnautica\BepInEx\plugins\Archipelago\Archipelago.MultiClient.Net.dll&#xD;&#xA;&#xD;&#xA;COPY $(TargetDir)mod.json D:\SteamLibrary\steamapps\common\Subnautica\BepInEx\plugins\Archipelago\mod.json" />
   </Target>
 
 </Project>

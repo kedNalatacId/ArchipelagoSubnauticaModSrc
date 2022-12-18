@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -336,7 +337,7 @@ namespace Archipelago
 
         public static void Disconnect()
         {
-            if (Session != null && Session.Socket != null)
+            if (Session != null && Session.Socket != null && Session.Socket.Connected)
             {
                 Session.Socket.Disconnect();
             }
@@ -393,8 +394,11 @@ namespace Archipelago
 
         public static void SendLocID(long id)
         {
-            ServerData.@checked.Add(id);
-            Task.Run(() => {Session.Locations.CompleteLocationChecksAsync(id); }).ConfigureAwait(false);
+            if (ServerData.@checked.Add(id))
+            {
+                Task.Run(() => {Session.Locations.CompleteLocationChecksAsync(
+                    ServerData.@checked.Except(Session.Locations.AllLocationsChecked).ToArray()); }).ConfigureAwait(false);
+            }
         }
 
         public static void unlock(TechType techType)

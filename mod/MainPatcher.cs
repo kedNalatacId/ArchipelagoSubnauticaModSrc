@@ -32,7 +32,7 @@ namespace Archipelago
     //Common interface
     public static class APWrapper
     {
-        public const string Version = "1.3.3";
+        public const string Version = "1.3.4";
         public static void Init()
         {
             // Plugin startup logic
