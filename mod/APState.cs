@@ -246,16 +246,7 @@ namespace Archipelago
                 return true;
             }
             // Start the archipelago session.
-            var url = ServerData.host_name;
-            int port = 38281;
-            if (url.Contains(":"))
-            {
-                var splits = url.Split(new char[] { ':' });
-                url = splits[0];
-                if (!int.TryParse(splits[1], out port)) port = 38281;
-            }
-            
-            Session = ArchipelagoSessionFactory.CreateSession(url, port);
+            Session = ArchipelagoSessionFactory.CreateSession(ServerData.host_name);
             Session.MessageLog.OnMessageReceived += Session_MessageReceived;
             Session.Socket.ErrorReceived += Session_ErrorReceived;
             Session.Socket.SocketClosed += Session_SocketClosed;
