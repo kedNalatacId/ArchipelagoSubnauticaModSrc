@@ -292,12 +292,9 @@ namespace Archipelago
                     }
                     
                 }
-
-                if (loginSuccess.SlotData.TryGetValue("deathlink", out var deathlink))
-                {
-                    var bdeathlink = (int)deathlink;
-                    ServerData.death_link = bdeathlink > 0;
-                }
+                
+                Debug.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData));
+                ServerData.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;
                 set_deathlink();
 
             }
@@ -355,7 +352,7 @@ namespace Archipelago
             message_queue.Add(deathLink.Cause);
         }
 
-        public static bool checkLocation(Vector3 position)
+        public static bool CheckLocation(Vector3 position)
         {
             long closest_id = -1;
             float closestDist = 100000.0f;
@@ -401,7 +398,7 @@ namespace Archipelago
             }
         }
 
-        public static void unlock(TechType techType)
+        public static void Unlock(TechType techType)
         {
             if (PDAScanner.IsFragment(techType))
             {

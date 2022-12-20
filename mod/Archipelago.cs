@@ -332,19 +332,24 @@ namespace Archipelago
         }
     }
 
-    // If databox was already spawned, make sure it's blank
     [HarmonyPatch(typeof(BlueprintHandTarget))]
     [HarmonyPatch("Start")]
     internal class BlueprintHandTarget_Start_Patch
     {
-        private static int _counter = 0;
+        // Using TechType.None gives 2 titanium we don't want that
+        private static int _counter = 20000;
         private static Object locker = new Object();
         [HarmonyPrefix] 
         public static void ReplaceDataboxContent(BlueprintHandTarget __instance)
         {
             lock (locker)
             {
-                __instance.unlockTechType = (TechType)20000+_counter; // Using TechType.None gives 2 titanium we don't want that
+                //KnownTechs might not spawn
+                while (KnownTech.Contains((TechType)_counter))
+                {
+                    _counter++;
+                }
+                __instance.unlockTechType = (TechType)_counter;
                 _counter++;
             }
         }
@@ -360,7 +365,7 @@ namespace Archipelago
         {
             if (!__instance.used)
             {
-                APState.checkLocation(__instance.gameObject.transform.position);
+                APState.CheckLocation(__instance.gameObject.transform.position);
             }
         }
     }
@@ -373,7 +378,7 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool PickupPDA(StoryHandTarget __instance)
         {
-            if (APState.checkLocation(__instance.gameObject.transform.position))
+            if (APState.CheckLocation(__instance.gameObject.transform.position))
             {
                 var generic_console = __instance.gameObject.GetComponent<GenericConsole>();
                 if (generic_console != null)
@@ -399,7 +404,7 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool PickModule(Pickupable __instance)
         {
-            if (APState.checkLocation(__instance.gameObject.transform.position))
+            if (APState.CheckLocation(__instance.gameObject.transform.position))
             {
                 var tech_tag = __instance.gameObject.GetComponent<TechTag>();
                 if (tech_tag != null)
@@ -609,7 +614,7 @@ namespace Archipelago
             {
                 if (APState.ServerData.index < APState.Session.Items.AllItemsReceived.Count)
                 {
-                    APState.unlock(APState.ITEM_CODE_TO_TECHTYPE[
+                    APState.Unlock(APState.ITEM_CODE_TO_TECHTYPE[
                         APState.Session.Items.AllItemsReceived[Convert.ToInt32(APState.ServerData.index)].Item
                     ]);
                     APState.ServerData.index++;
@@ -634,7 +639,6 @@ namespace Archipelago
             var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
             var rawPath = storage.GetType().GetField("savePath",
                 BindingFlags.NonPublic | BindingFlags.Instance).GetValue(storage);
-            Debug.LogError("PathTest:" + rawPath);
             var lastConnectInfo = APLastConnectInfo.LoadFromFile(rawPath + "/archipelago_last_connection.json");
             if (lastConnectInfo != null)
             {
