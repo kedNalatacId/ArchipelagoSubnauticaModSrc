@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -154,8 +155,10 @@ namespace Archipelago
             TechType.LabTrashcan,
             TechType.BaseFiltrationMachine
         };
-
+        
+        public static TrackerMode TrackedMode = TrackerMode.Logical;
         public static Dictionary<string, long> Encyclopdia;
+        public static Dictionary<TechType, List<long>> LogicDict;
 
         public static HashSet<TechType> TechFragmentsToDestroy = new HashSet<TechType>();
 
@@ -234,6 +237,14 @@ namespace Archipelago
                 Encyclopdia = JsonConvert.DeserializeObject<Dictionary<string, long>>(content);
                 reader.Close();
             }
+            // Load logic.json
+            {
+                var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/logic.json");
+                var content = reader.ReadToEnd();
+                LogicDict = JsonConvert.DeserializeObject<Dictionary<TechType, List<long>>>(content);
+                reader.Close();
+            }
+            
             // launch thread
             TrackerProcessing = new Thread(TrackerThread.DoWork);
             TrackerProcessing.IsBackground = true;

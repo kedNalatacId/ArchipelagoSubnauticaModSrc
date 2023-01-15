@@ -5,8 +5,25 @@ using UnityEngine;
 
 namespace Archipelago
 {
+    public enum TrackerMode
+    {
+        Disabled,
+        Closest,
+        Logical,
+    }
     public class TrackerThread
     {
+        public static bool InLogic(long location_id)
+        {
+            foreach (var logic in APState.LogicDict)
+            {
+                if (!KnownTech.Contains(logic.Key) && logic.Value.Contains(location_id))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
         public static void DoWork()
         {
             float closestDist;
@@ -20,7 +37,7 @@ namespace Archipelago
             while (true)
             {
                 // locations
-                long tracking_count = 0;
+                long trackingCount = 0;
                 if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
                 {
                     playerPos = Player.main.gameObject.transform.position;
@@ -32,7 +49,12 @@ namespace Archipelago
                         // Check that it's a static location
                         if (locID < scanCutOff)
                         {
-                            tracking_count++;
+                            trackingCount++;
+                            // Skip locations not in logic
+                            if (APState.TrackedMode == TrackerMode.Logical && !InLogic(locID))
+                            {
+                                continue;
+                            }
                             dist = Vector3.Distance(playerPos, APState.LOCATIONS[locID].Position);
                             if (dist < closestDist)
                             {
@@ -42,16 +64,18 @@ namespace Archipelago
                         }
                     }
 
-                    APState.TrackedLocationsCount = tracking_count;
+                    APState.TrackedLocationsCount = trackingCount;
                     APState.TrackedDistance = closestDist;
                     APState.TrackedLocation = closestID;
                     if (closestID != -1)
                     {
                         APState.TrackedLocationName =
                             APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation);
-                        Vector3 directionVector = APState.LOCATIONS[closestID].Position - Player.main.gameObject.transform.position;
+                        Vector3 directionVector = APState.LOCATIONS[closestID].Position - 
+                                                  Player.main.gameObject.transform.position;
                         directionVector.Normalize();
-                        APState.TrackedAngle = Vector3.Angle(directionVector, Player.main.viewModelCamera.transform.forward);
+                        APState.TrackedAngle = Vector3.Angle(directionVector, 
+                            Player.main.viewModelCamera.transform.forward);
                     }
                 }
                 else
@@ -81,7 +105,10 @@ namespace Archipelago
                         var display_fish = new List<string>();
                         for (int i = 0; i < Math.Min(APState.TrackedFishCount, maxFish); i++)
                         {
-                            display_fish.Add(APState.Session.Locations.GetLocationNameFromId(remainingFish[i]).Replace(" Scan", ""));
+                            display_fish.Add(
+                                APState.Session.Locations.GetLocationNameFromId(
+                                    remainingFish[i]).Replace(
+                                    " Scan", ""));
                         }
                         APState.TrackedFish = String.Join(", ", display_fish);
                     }

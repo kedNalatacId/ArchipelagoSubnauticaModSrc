@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -87,9 +88,12 @@ namespace Archipelago
                 GUI.Label(new Rect(16, 56, 150, 20), "PlayerName: ");
                 GUI.Label(new Rect(16, 76, 150, 20), "Password: ");
 
-                APState.ServerData.host_name = GUI.TextField(new Rect(150 + 16 + 8, 36, 150, 20), APState.ServerData.host_name);
-                APState.ServerData.slot_name = GUI.TextField(new Rect(150 + 16 + 8, 56, 150, 20), APState.ServerData.slot_name);
-                APState.ServerData.password = GUI.TextField(new Rect(150 + 16 + 8, 76, 150, 20), APState.ServerData.password);
+                APState.ServerData.host_name = GUI.TextField(new Rect(150 + 16 + 8, 36, 150, 20), 
+                    APState.ServerData.host_name);
+                APState.ServerData.slot_name = GUI.TextField(new Rect(150 + 16 + 8, 56, 150, 20), 
+                    APState.ServerData.slot_name);
+                APState.ServerData.password = GUI.TextField(new Rect(150 + 16 + 8, 76, 150, 20), 
+                    APState.ServerData.password);
 
                 if (GUI.Button(new Rect(16, 96, 100, 20), "Connect"))
                 {
@@ -99,24 +103,22 @@ namespace Archipelago
             else if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
             {
                 
-                if (APState.TrackedLocation != -1)
+                if (APState.TrackedLocation != -1 && APState.TrackedMode != TrackerMode.Disabled)
                 {
-                    GUI.Label(new Rect(16, 36, 1000, 20), 
-                        "Locations left: " +
-                        APState.TrackedLocationsCount +
-                        ". Closest is " + (long)APState.TrackedDistance + " m away, named " + 
-                        APState.TrackedLocationName);
-                    // Databox Hotfix
-                    if (APState.TrackedDistance < 2.0f && APState.TrackedLocationName.Contains("Databox"))
+                    string text = "Locations left: " + APState.TrackedLocationsCount;
+                    if (APState.TrackedLocation != -1)
                     {
-                        APState.SendLocID(APState.TrackedLocation);
+                        text += ". Closest is " + (long)APState.TrackedDistance + " m away, named " +
+                                APState.TrackedLocationName;
                     }
+                    GUI.Label(new Rect(16, 36, 1000, 20), text);
+                    
                     // TODO: find a way to display this
                     //GUI.Label(new Rect(16, 56, 1000, 20), 
                     //    APState.TrackedAngle.ToString());
                 }
 
-                if (APState.TrackedFishCount > 0)
+                if (APState.TrackedFishCount > 0 && APState.TrackedMode != TrackerMode.Disabled)
                 {
                     GUI.Label(new Rect(16, 56, 1000, 22), 
                         "Fish left: "+APState.TrackedFishCount + ". Such as: "+APState.TrackedFish);
@@ -208,6 +210,7 @@ namespace Archipelago
         {
             DevConsole.RegisterConsoleCommand(this, "say", false, false);
             DevConsole.RegisterConsoleCommand(this, "silent", false, false);
+            DevConsole.RegisterConsoleCommand(this, "tracker", false, false);
             DevConsole.RegisterConsoleCommand(this, "deathlink", false, false);
             DevConsole.RegisterConsoleCommand(this, "apdebug", false, false);
         }
@@ -249,6 +252,29 @@ namespace Archipelago
             {
                 Debug.Log("Enabled Archipelago chat.");
                 ErrorMessage.AddMessage("Enabled Archipelago chat.");
+            }
+        }
+        private void OnConsoleCommand_tracker(NotificationCenter.Notification n)
+        {
+            switch (APState.TrackedMode)
+            {
+                case TrackerMode.Disabled:
+                    APState.TrackedMode = TrackerMode.Closest;
+                    Debug.Log("Tracking Locations by proximity.");
+                    ErrorMessage.AddMessage("Tracking Locations by proximity.");
+                    break;
+                case TrackerMode.Closest:
+                    APState.TrackedMode = TrackerMode.Logical;
+                    Debug.Log("Tracking Locations by proximity, additionally filtering by " +
+                              "Laser Cutter, Radiation Suit and Propulsion Cannon.");
+                    ErrorMessage.AddMessage("Tracking Locations by proximity, additionally filtering by " +
+                                            "Laser Cutter, Radiation Suit and Propulsion Cannon.");
+                    break;
+                case TrackerMode.Logical:
+                    APState.TrackedMode = TrackerMode.Disabled;
+                    Debug.Log("Location tracking disabled.");
+                    ErrorMessage.AddMessage("Location tracking disabled.");
+                    break;
             }
         }
         private void OnConsoleCommand_deathlink(NotificationCenter.Notification n)
@@ -337,21 +363,25 @@ namespace Archipelago
     internal class BlueprintHandTarget_Start_Patch
     {
         // Using TechType.None gives 2 titanium we don't want that
-        private static int _counter = 20000;
-        private static Object locker = new Object();
         [HarmonyPrefix] 
         public static void ReplaceDataboxContent(BlueprintHandTarget __instance)
         {
-            lock (locker)
-            {
-                //KnownTechs might not spawn
-                while (KnownTech.Contains((TechType)_counter))
-                {
-                    _counter++;
-                }
-                __instance.unlockTechType = (TechType)_counter;
-                _counter++;
-            }
+            // needs to be a unique not taken ID
+            __instance.unlockTechType = (TechType)__instance.transform.position.x+100000;
+        }
+    }
+
+    [HarmonyPatch(typeof(DataboxSpawner))]
+    [HarmonyPatch("Start")]
+    internal class DataboxSpawner_Start_Patch
+    {
+        
+        [HarmonyPrefix]
+        public static bool AlwaysSpawn(DataboxSpawner __instance, ref IEnumerator __result)
+        {
+            __result = AddressablesUtility.InstantiateAsync(__instance.databoxPrefabReference.RuntimeKey as string, 
+                __instance.transform.parent, __instance.transform.localPosition, __instance.transform.localRotation);
+            return false;
         }
     }
 
