@@ -1,8 +1,6 @@
 ﻿using System.Reflection;
 using BepInEx;
 using HarmonyLib;
-using UnityEngine;
-
 
 namespace Archipelago
 {
@@ -10,7 +8,7 @@ namespace Archipelago
     [BepInPlugin("Archipelago", "Archipelago", Version)]
     public class ArchipelagoPlugin : BaseUnityPlugin
     {
-        public const string Version = "1.3.4";
+        public const string Version = "1.4.0";
         private void Awake()
         {
             var harmony = new Harmony("Archipelago");

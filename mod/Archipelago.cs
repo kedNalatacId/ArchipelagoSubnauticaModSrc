@@ -12,7 +12,6 @@ using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Newtonsoft.Json;
 using Debug = UnityEngine.Debug;
 using File = System.IO.File;
-using Object = System.Object;
 
 
 namespace Archipelago
