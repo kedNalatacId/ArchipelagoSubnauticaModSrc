@@ -17,7 +17,17 @@ namespace Archipelago
         {
             foreach (var logic in APState.LogicDict)
             {
-                if (!KnownTech.Contains(logic.Key) && logic.Value.Contains(location_id))
+                bool hasItem;
+                try
+                {
+                    hasItem = KnownTech.Contains(logic.Key);
+                }
+                catch (NullReferenceException)
+                {
+                    hasItem = false;
+                }
+                
+                if (!hasItem && logic.Value.Contains(location_id))
                 {
                     return false;
                 }
