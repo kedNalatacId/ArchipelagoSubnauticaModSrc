@@ -195,14 +195,28 @@ namespace Archipelago
         }
 #endif
 
+        public static T ReadJSON<T>(string filename)
+        {
+            try
+            {
+                var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/" + filename + ".json");
+                var content = reader.ReadToEnd();
+                reader.Close();
+                var data = JsonConvert.DeserializeObject<T>(content);
+                return data;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("Could not read " + filename + ".json\n" + e);
+                return default;
+            }
+        }
+        
         public static void Init()
         {
             // Load items.json
             {
-                var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/items.json");
-                var content = reader.ReadToEnd();
-                reader.Close();
-                var data = JsonConvert.DeserializeObject<Dictionary<int, string>>(content);
+                var data = ReadJSON<Dictionary<int, string>>("items");
                 foreach (var itemJson in data)
                 {
                     ITEM_CODE_TO_TECHTYPE[itemJson.Key] =
@@ -211,10 +225,7 @@ namespace Archipelago
             }
             // Load locations.json
             {
-                var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/locations.json");
-                var content = reader.ReadToEnd();
-                var data = JsonConvert.DeserializeObject<Dictionary<int, Dictionary<string, float>>>(content);
-                reader.Close();
+                var data = ReadJSON<Dictionary<int, Dictionary<string, float>>>("locations");
 
                 foreach (var locationJson in data)
                 {
@@ -231,17 +242,11 @@ namespace Archipelago
             }
             // Load encyclopedia.json
             {
-                var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/encyclopedia.json");
-                var content = reader.ReadToEnd();
-                Encyclopdia = JsonConvert.DeserializeObject<Dictionary<string, long>>(content);
-                reader.Close();
+                Encyclopdia = ReadJSON<Dictionary<string, long>>("encyclopedia");
             }
             // Load logic.json
             {
-                var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/logic.json");
-                var content = reader.ReadToEnd();
-                LogicDict = JsonConvert.DeserializeObject<Dictionary<TechType, List<long>>>(content);
-                reader.Close();
+                LogicDict = ReadJSON<Dictionary<TechType, List<long>>>("logic");
             }
             
             // launch thread
@@ -249,6 +254,7 @@ namespace Archipelago
             TrackerProcessing.IsBackground = true;
             TrackerProcessing.Start();
         }
+        
         public static bool Connect()
         {
             if (Authenticated)
