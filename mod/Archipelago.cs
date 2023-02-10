@@ -258,6 +258,7 @@ namespace Archipelago
             {
                 Debug.Log("Muted Archipelago chat.");
                 ErrorMessage.AddMessage("Muted Archipelago chat.");
+                APState.message_queue.Clear();
             }
             else
             {

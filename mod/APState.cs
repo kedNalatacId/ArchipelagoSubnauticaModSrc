@@ -330,7 +330,10 @@ namespace Archipelago
         }
         static void Session_MessageReceived(LogMessage message)
         {
-            message_queue.Add(message.ToString());
+            if (!Silent)
+            {
+                message_queue.Add(message.ToString());
+            }
         }
         static void Session_ErrorReceived(Exception e, string message)
         {
