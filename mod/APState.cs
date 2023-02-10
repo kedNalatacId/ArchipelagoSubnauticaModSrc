@@ -52,6 +52,7 @@ namespace Archipelago
         public static bool Authenticated;
         public static string Goal = "launch";
         public static string GoalEvent = "";
+        public static string SwimRule = "";
         public static bool Silent = false;
         public static Thread TrackerProcessing;
         public static long TrackedLocationsCount = 0;
@@ -286,19 +287,21 @@ namespace Archipelago
                 ServerData.GetAsLastConnect().WriteToFile(rawPath + "/archipelago_last_connection.json");
                 Authenticated = true;
                 state = State.InGame;
-                if (loginSuccess.SlotData.ContainsKey("goal"))
+                if (loginSuccess.SlotData.ContainsKey("swim_rule"))
                 {
-                    Goal = (string)loginSuccess.SlotData["goal"];
-                    GoalMapping.TryGetValue(Goal, out GoalEvent);
-                    if (loginSuccess.SlotData["vanilla_tech"] is JArray temp)
-                    {
-                        foreach (var tech in temp)
-                        {
-                            vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
-                        }
-                    }
-                    
+                    SwimRule = (string)loginSuccess.SlotData["swim_rule"];
                 }
+                Goal = (string)loginSuccess.SlotData["goal"];
+                GoalMapping.TryGetValue(Goal, out GoalEvent);
+                if (loginSuccess.SlotData["vanilla_tech"] is JArray temp)
+                {
+                    foreach (var tech in temp)
+                    {
+                        vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
+                    }
+                }
+                    
+                
                 
                 Debug.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData));
                 ServerData.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;

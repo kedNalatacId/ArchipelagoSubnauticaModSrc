@@ -136,11 +136,33 @@ namespace Archipelago
                         "Fish left: "+APState.TrackedFishCount + ". Such as: "+APState.TrackedFish);
                 }
 
-                if (EscapePod.main != null &&
+                if (!ReferenceEquals(EscapePod.main, null) &&
                     (EscapePod.main.transform.position - Player.main.transform.position).magnitude < 10f)
                 {
                     GUI.Label(new Rect(16, 76, 1000, 22), 
                         "Goal: "+APState.Goal);
+                    if (APState.SwimRule.Length == 0)
+                    {
+                        GUI.Label(new Rect(16, 96, 1000, 22), 
+                            "No Swim Rule send by Server. Assuming items_hard." + 
+                            " Current Logical Depth: " + (TrackerThread.LogicSwimDepth + 
+                                                          TrackerThread.LogicVehicleDepth));
+                    }
+                    else
+                    {
+                        GUI.Label(new Rect(16, 96, 1000, 22), 
+                            "Swim Rule: "+APState.SwimRule + 
+                            " Current Logical Depth: " + (TrackerThread.LogicSwimDepth + 
+                                                          TrackerThread.LogicVehicleDepth));
+                    }
+                }
+
+                if (!APState.TrackerProcessing.IsAlive)
+                {
+                    {
+                        GUI.Label(new Rect(16, 116, 1000, 22), 
+                            "Error: Tracker Thread died. Tracker will not update.");
+                    }
                 }
             }
 
@@ -278,10 +300,8 @@ namespace Archipelago
                     break;
                 case TrackerMode.Closest:
                     APState.TrackedMode = TrackerMode.Logical;
-                    Debug.Log("Tracking Locations by proximity, additionally filtering by " +
-                              "Laser Cutter, Radiation Suit and Propulsion Cannon.");
-                    ErrorMessage.AddMessage("Tracking Locations by proximity, additionally filtering by " +
-                                            "Laser Cutter, Radiation Suit and Propulsion Cannon.");
+                    Debug.Log("Tracking Locations by proximity and filtering by logic");
+                    ErrorMessage.AddMessage("Tracking Locations by proximity and filtering by logic");
                     break;
                 case TrackerMode.Logical:
                     APState.TrackedMode = TrackerMode.Disabled;

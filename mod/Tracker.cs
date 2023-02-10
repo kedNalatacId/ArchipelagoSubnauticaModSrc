@@ -11,10 +11,17 @@ namespace Archipelago
         Closest,
         Logical,
     }
+    
     public class TrackerThread
     {
-        public static bool InLogic(long location_id)
+        public static string DepthString = "";
+        public static bool ItemsRelevant = true;
+        public static float BaseDepth = 600f;
+        public static float LogicSwimDepth = BaseDepth;
+        public static float LogicVehicleDepth = 0;
+        public static bool InLogic(long locID)
         {
+            // Gating items
             foreach (var logic in APState.LogicDict)
             {
                 bool hasItem;
@@ -27,13 +34,163 @@ namespace Archipelago
                     hasItem = false;
                 }
                 
-                if (!hasItem && logic.Value.Contains(location_id))
+                if (!hasItem && logic.Value.Contains(locID))
                 {
                     return false;
                 }
             }
-            return true;
+            // Depth
+            Vector3 position = APState.LOCATIONS[locID].Position;
+            return LogicVehicleDepth + LogicSwimDepth > position.y;
+
         }
+
+        public static void PrimeDepthSystem()
+        {
+
+            DepthString = APState.SwimRule;
+            if (DepthString.Length == 0)
+            {
+                // assume most permissive logic if none given
+                DepthString = "items_hard";
+            }
+
+            var nameParts = DepthString.Split('_');
+
+            ItemsRelevant = nameParts.Length > 1;
+            switch (nameParts.GetLast())
+            {
+                case "easy":
+                {
+                    BaseDepth = 200f;
+                    break;
+                }
+                case "normal":
+                {
+                    BaseDepth = 400f;
+                    break;
+                }
+                case "hard":
+                {
+                    BaseDepth = 600f;
+                    break;
+                }
+            }
+        }
+
+        public static void UpdateLogicDepth()
+        {
+            float swimdepth = BaseDepth;
+            bool hasModStation;
+            try
+            {
+                hasModStation = KnownTech.Contains(TechType.Workbench);
+            }
+            catch (NullReferenceException)
+            {
+                return;
+            }
+
+            if (KnownTech.Contains(TechType.Seaglide))
+            {
+                swimdepth += 200f;
+                // Ultra High Capacity Tank
+                if (hasModStation && KnownTech.Contains(TechType.HighCapacityTank))
+                {
+                    swimdepth += 150f;
+                }
+            }
+            else if (hasModStation && KnownTech.Contains(TechType.UltraGlideFins))
+            {
+                swimdepth += 50f;
+                if (KnownTech.Contains(TechType.HighCapacityTank))
+                {
+                    swimdepth += 100f;
+                }
+                else if (KnownTech.Contains(TechType.PlasteelTank))
+                {
+                    swimdepth += 25f;
+                }
+            }
+            else if (hasModStation && KnownTech.Contains(TechType.HighCapacityTank))
+            {
+                swimdepth += 100f;
+            }
+            else if (hasModStation && KnownTech.Contains(TechType.PlasteelTank))
+            {
+                swimdepth += 25f;
+            }
+
+            LogicSwimDepth = swimdepth;
+        }
+
+        public static void UpdateVehicleDepth()
+        {
+            bool hasBay;
+            float maxDepth = 0f;
+            try
+            {
+                hasBay = KnownTech.Contains(TechType.Constructor);
+            }
+            catch (Exception)
+            {
+                return;
+            }
+            bool hasModStation = KnownTech.Contains(TechType.Workbench);
+            bool hasUpgradeConsole = KnownTech.Contains(TechType.BaseUpgradeConsole);
+            if (!hasBay)
+            {
+                LogicVehicleDepth = 0;
+                return;
+            }
+            if (KnownTech.Contains(TechType.Seamoth))
+            {
+                maxDepth = Math.Max(maxDepth, 200f);
+                if (hasUpgradeConsole && KnownTech.Contains(TechType.VehicleHullModule1))
+                {
+                    maxDepth = Math.Max(maxDepth, 300f);
+                    if (hasModStation && KnownTech.Contains(TechType.VehicleHullModule2))
+                    {
+                        maxDepth = Math.Max(maxDepth, 500f);
+                        if (KnownTech.Contains(TechType.VehicleHullModule3))
+                        {
+                            maxDepth = Math.Max(maxDepth, 900f);
+                        }
+                    }
+                }
+            }
+            if (KnownTech.Contains(TechType.Exosuit))
+            {
+                maxDepth = Math.Max(maxDepth, 900f);
+                if (hasUpgradeConsole && KnownTech.Contains(TechType.ExoHullModule1))
+                {
+                    maxDepth = Math.Max(maxDepth, 1300f);
+                    if (hasModStation && KnownTech.Contains(TechType.ExoHullModule2))
+                    {
+                        maxDepth = Math.Max(maxDepth, 1700f);
+                    }
+                }
+            }
+            if (KnownTech.Contains(TechType.Cyclops))
+            {
+                maxDepth = Math.Max(maxDepth, 500f);
+                if (KnownTech.Contains(TechType.CyclopsHullModule1))
+                {
+                    maxDepth = Math.Max(maxDepth, 900f);
+                    if (hasModStation && KnownTech.Contains(TechType.CyclopsHullModule2))
+                    {
+                        maxDepth = Math.Max(maxDepth, 1300f);
+                        if (KnownTech.Contains(TechType.CyclopsHullModule3))
+                        {
+                            maxDepth = Math.Max(maxDepth, 1700f);
+                        }
+                    }
+                }
+            }
+
+            LogicVehicleDepth = maxDepth;
+        }
+        
         public static void DoWork()
         {
             float closestDist;
@@ -42,10 +199,28 @@ namespace Archipelago
             long scanCutOff = 33999;
             long maxFish = 7;
 
+
             Vector3 playerPos;
             
             while (true)
             {
+
+                if (APState.SwimRule != DepthString)
+                {
+                    PrimeDepthSystem();
+                }
+
+                if (ItemsRelevant)
+                {
+                    UpdateLogicDepth();
+                }
+                else
+                {
+                    LogicSwimDepth = BaseDepth;
+                }
+                
+                UpdateVehicleDepth();
+                
                 // locations
                 long trackingCount = 0;
                 if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
@@ -132,7 +307,7 @@ namespace Archipelago
                     APState.TrackedFishCount = 0;
                 }
 
-                Thread.Sleep(100);
+                Thread.Sleep(150);
             }
         }
     }
