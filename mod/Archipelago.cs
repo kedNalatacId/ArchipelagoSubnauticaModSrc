@@ -12,6 +12,7 @@ using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Newtonsoft.Json;
 using Debug = UnityEngine.Debug;
 using File = System.IO.File;
+using Object = UnityEngine.Object;
 
 
 namespace Archipelago
@@ -393,6 +394,7 @@ namespace Archipelago
         {
             __result = AddressablesUtility.InstantiateAsync(__instance.databoxPrefabReference.RuntimeKey as string, 
                 __instance.transform.parent, __instance.transform.localPosition, __instance.transform.localRotation);
+            Object.Destroy(__instance.gameObject);
             return false;
         }
     }
