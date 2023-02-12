@@ -88,11 +88,7 @@ namespace Archipelago
                 GUI.Label(new Rect(16, 56, 150, 20), "PlayerName: ");
                 GUI.Label(new Rect(16, 76, 150, 20), "Password: ");
 
-                bool submit = false;
-                if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return)
-                {
-                    submit = true;
-                }
+                bool submit = Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return;
 
                 APState.ServerData.host_name = GUI.TextField(new Rect(150 + 16 + 8, 36, 150, 20), 
                     APState.ServerData.host_name);
@@ -120,9 +116,14 @@ namespace Archipelago
                     string text = "Locations left: " + APState.TrackedLocationsCount;
                     if (APState.TrackedLocation != -1)
                     {
-                        text += ". Closest is " + (long)APState.TrackedDistance + " m away, named " +
-                                APState.TrackedLocationName;
+                        text += ". Closest is " + (long)APState.TrackedDistance + " m away";
+                        if (Math.Abs(APState.TrackedAngle) < 10)
+                        {
+                            text += ", ahead";
+                        }
+                        text += ", named " + APState.TrackedLocationName;
                     }
+                    
                     GUI.Label(new Rect(16, 36, 1000, 20), text);
                     
                     // TODO: find a way to display this
@@ -144,7 +145,7 @@ namespace Archipelago
                     if (APState.SwimRule.Length == 0)
                     {
                         GUI.Label(new Rect(16, 96, 1000, 22), 
-                            "No Swim Rule send by Server. Assuming items_hard." + 
+                            "No Swim Rule sent by Server. Assuming items_hard." + 
                             " Current Logical Depth: " + (TrackerThread.LogicSwimDepth + 
                                                           TrackerThread.LogicVehicleDepth));
                     }
