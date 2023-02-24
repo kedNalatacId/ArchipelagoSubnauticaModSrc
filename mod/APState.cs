@@ -36,8 +36,7 @@ namespace Archipelago
             { "drive", "AuroraRadiationFixed" },
             { "infected", "Infection_Progress4" },
         };
-
-        public static HashSet<string> scannable = new HashSet<string>();
+        
         public static int[] AP_VERSION = new int[] { 0, 3, 8 };
         public static APData ServerData = new APData();
         public static DeathLinkService DeathLinkService = null;
@@ -282,9 +281,17 @@ namespace Archipelago
             if (loginResult is LoginSuccessful loginSuccess)
             {
                 var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
-                var rawPath = storage.GetType().GetField("savePath",
-                    BindingFlags.NonPublic | BindingFlags.Instance).GetValue(storage);
-                ServerData.GetAsLastConnect().WriteToFile(rawPath + "/archipelago_last_connection.json");
+                var rawPath = storage?.GetType().GetField("savePath",
+                        BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(storage);
+                if (rawPath != null)
+                {
+                    ServerData.GetAsLastConnect().WriteToFile(rawPath + "/archipelago_last_connection.json");
+                }
+                else
+                {
+                    Debug.LogError("Could not write most recent connect info to file.");
+                }
+                
                 Authenticated = true;
                 state = State.InGame;
                 if (loginSuccess.SlotData.ContainsKey("swim_rule"))
@@ -301,7 +308,6 @@ namespace Archipelago
                     }
                 }
                     
-                
                 
                 Debug.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData));
                 ServerData.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;
@@ -411,8 +417,29 @@ namespace Archipelago
             }
         }
 
-        public static void Unlock(TechType techType)
+        public static void Resync()
         {
+            Debug.Log("Running Item resync with " + Session.Items.AllItemsReceived.Count + "items.");
+            var done = new HashSet<long>();
+            foreach (var networkItem in Session.Items.AllItemsReceived)
+            {
+                if (!done.Contains(networkItem.Item))
+                {
+                    Unlock(networkItem.Item);
+                    done.Add(networkItem.Item);
+                }
+            }
+        }
+        
+        public static void Unlock(long apItemID)
+        {
+            
+            ITEM_CODE_TO_TECHTYPE.TryGetValue(apItemID, out var techType);
+            if (techType == TechType.None || KnownTech.Contains(techType))
+            {
+                // Unknown item ID or already known technology.
+                return;
+            }
             if (PDAScanner.IsFragment(techType))
             {
                 PDAScanner.EntryData entryData = PDAScanner.GetEntryData(techType);
@@ -426,7 +453,12 @@ namespace Archipelago
 
                 if (entry != null)
                 {
-                    entry.unlocked++;
+                    int newCount = Session.Items.AllItemsReceived.Count(networkItem => networkItem.Item == apItemID);
+                    if (newCount == entry.unlocked)
+                    {
+                        return;
+                    }
+                    entry.unlocked = newCount;
 
                     if (entry.unlocked >= entryData.totalFragments)
                     {

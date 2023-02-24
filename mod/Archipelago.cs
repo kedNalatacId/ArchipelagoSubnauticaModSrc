@@ -116,11 +116,8 @@ namespace Archipelago
                     string text = "Locations left: " + APState.TrackedLocationsCount;
                     if (APState.TrackedLocation != -1)
                     {
-                        text += ". Closest is " + (long)APState.TrackedDistance + " m away";
-                        if (Math.Abs(APState.TrackedAngle) < 10)
-                        {
-                            text += ", ahead";
-                        }
+                        text += ". Closest is " + (long)APState.TrackedDistance + " m (" 
+                                + (int)APState.TrackedAngle + "°) away";
                         text += ", named " + APState.TrackedLocationName;
                     }
                     
@@ -247,6 +244,7 @@ namespace Archipelago
             DevConsole.RegisterConsoleCommand(this, "silent", false, false);
             DevConsole.RegisterConsoleCommand(this, "tracker", false, false);
             DevConsole.RegisterConsoleCommand(this, "deathlink", false, false);
+            DevConsole.RegisterConsoleCommand(this, "resync", false, false);
             DevConsole.RegisterConsoleCommand(this, "apdebug", false, false);
         }
 
@@ -327,7 +325,24 @@ namespace Archipelago
                 ErrorMessage.AddMessage("Disabled DeathLink.");
             }
         }
-
+        
+        private void OnConsoleCommand_resync(NotificationCenter.Notification n)
+        {
+            if (APState.state == APState.State.InGame)
+            {
+                Debug.Log("Beginning Item resync.");
+                ErrorMessage.AddMessage("Beginning Item resync.");
+                APState.Resync();
+                Debug.Log("Item resync completed.");
+                ErrorMessage.AddMessage("Item resync completed.");
+            }
+            else
+            {
+                Debug.Log("Cannot resync in menu.");
+                ErrorMessage.AddMessage("Cannot resync in menu.");
+            }
+        }
+        
         private void OnConsoleCommand_apdebug(NotificationCenter.Notification n)
         {
             //var loc = APState.TrackedLocation;
@@ -687,12 +702,19 @@ namespace Archipelago
             {
                 if (APState.ServerData.index < APState.Session.Items.AllItemsReceived.Count)
                 {
-                    APState.Unlock(APState.ITEM_CODE_TO_TECHTYPE[
-                        APState.Session.Items.AllItemsReceived[Convert.ToInt32(APState.ServerData.index)].Item
-                    ]);
+                    APState.Unlock(APState.Session.Items.AllItemsReceived[
+                        Convert.ToInt32(APState.ServerData.index)].Item);
                     APState.ServerData.index++;
                     // We only do x at a time. To not crowd the on screen log/events too fast
                     APState.unlock_dequeue_timeout = DEQUEUE_TIME;
+                    // When at end of queue, validate all item counts.
+                    // For some unknown reason, items may be missed sometimes in MultiClient.Net games,
+                    // though Subnautica seems to have been particularly susceptible to that.
+                    // Regardless, this workaround should take care of the problem.
+                    if (APState.ServerData.index == APState.Session.Items.AllItemsReceived.Count)
+                    {
+                        APState.Resync();
+                    }
                 }
             }
         }
