@@ -824,20 +824,22 @@ namespace Archipelago
             return true;
         }
     }
-
-    // Prevent aurora explosion story event to give a radiationsuit...
+    
     [HarmonyPatch(typeof(Story.UnlockBlueprintData))]
     [HarmonyPatch("Trigger")]
     internal class UnlockBlueprintData_Trigger_Patch
     {
         [HarmonyPrefix]
-        public static bool PreventRadiationSuitUnlock(Story.UnlockBlueprintData __instance)
+        public static bool PreventStoryUnlock(Story.UnlockBlueprintData __instance)
         {
-            if (__instance.techType == TechType.RadiationSuit)
+            switch (__instance.techType)
             {
-                return false;
+                case TechType.RadiationSuit:
+                case TechType.BaseLargeRoom:
+                    return false;
+                default:
+                    return true;
             }
-            return true;
         }
     }
 

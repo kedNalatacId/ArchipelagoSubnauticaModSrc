@@ -37,7 +37,7 @@ namespace Archipelago
             { "infected", "Infection_Progress4" },
         };
         
-        public static int[] AP_VERSION = new int[] { 0, 3, 8 };
+        public static int[] AP_VERSION = new int[] { 0, 3, 9 };
         public static APData ServerData = new APData();
         public static DeathLinkService DeathLinkService = null;
         public static Dictionary<long, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<long, TechType>();
