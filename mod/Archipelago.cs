@@ -248,6 +248,24 @@ namespace Archipelago
             DevConsole.RegisterConsoleCommand(this, "apdebug", false, false);
         }
 
+        [HarmonyPatch(typeof(ConsoleInput))]
+        [HarmonyPatch("Validate")]
+        internal class ConsoleHook
+        {
+            [HarmonyPrefix]
+            private static bool AllowExclamationPoint(string text, int pos, char ch, ref char __result)
+            {
+                Debug.LogError(text + "Char:" + ch);
+                if (ch == '!')
+                {
+                    __result = ch;
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
         private void OnConsoleCommand_say(NotificationCenter.Notification n)
         {
             string text = "";
@@ -257,8 +275,6 @@ namespace Archipelago
                 text += (string)n.data[i];
                 if (i < n.data.Count - 1) text += " ";
             }
-            // Cannot type the '!' character in subnautica console, will use / instead and replace them
-            text = text.Replace('/', '!');
             
             if (APState.Session != null && APState.Authenticated)
             {
