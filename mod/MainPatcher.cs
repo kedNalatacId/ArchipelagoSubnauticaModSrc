@@ -8,7 +8,7 @@ namespace Archipelago
     [BepInPlugin("Archipelago", "Archipelago", Version)]
     public class ArchipelagoPlugin : BaseUnityPlugin
     {
-        public const string Version = "1.5.0";
+        public const string Version = "1.5.1";
         private void Awake()
         {
             var harmony = new Harmony("Archipelago");
