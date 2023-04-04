@@ -40,12 +40,13 @@ namespace Archipelago
         public static int[] AP_VERSION = new int[] { 0, 3, 9 };
         public static APData ServerData = new APData();
         public static DeathLinkService DeathLinkService = null;
-        public static Dictionary<long, TechType> ITEM_CODE_TO_TECHTYPE = new Dictionary<long, TechType>();
-        public static Dictionary<long, Location> LOCATIONS = new Dictionary<long, Location>();
+        public static Dictionary<long, TechType> ITEM_CODE_TO_TECHTYPE = new ();
+        public static Dictionary<long, Location> LOCATIONS = new ();
+        public static Dictionary<long, List<long>> GROUP_ITEMS = new ();
         public static bool DeathLinkKilling = false; // indicates player is currently getting DeathLinked
-        public static Dictionary<string, int> archipelago_indexes = new Dictionary<string, int>();
+        public static Dictionary<string, int> archipelago_indexes = new ();
         public static float unlock_dequeue_timeout = 0.0f;
-        public static List<string> message_queue = new List<string>();
+        public static List<string> message_queue = new ();
         public static float message_dequeue_timeout = 0.0f;
         public static State state = State.Menu;
         public static bool Authenticated;
@@ -105,9 +106,6 @@ namespace Archipelago
             TechType.PlanterBoxFragment,
             TechType.PlanterShelfFragment,
             TechType.AquariumFragment,
-            TechType.ReinforcedDiveSuitFragment,
-            TechType.RadiationSuitFragment,
-            TechType.WaterFiltrationSuitFragment,
             TechType.BuilderFragment,
             TechType.LEDLightFragment,
             TechType.TechlightFragment,
@@ -219,9 +217,17 @@ namespace Archipelago
                 var data = ReadJSON<Dictionary<int, string>>("items");
                 foreach (var itemJson in data)
                 {
-                    ITEM_CODE_TO_TECHTYPE[itemJson.Key] =
-                        (TechType)Enum.Parse(typeof(TechType), itemJson.Value);
+                    // not all tech types exist in both games
+                    var success = Enum.TryParse(itemJson.Value, out TechType tech);
+                    if (success)
+                    {
+                        ITEM_CODE_TO_TECHTYPE[itemJson.Key] = tech;
+                    }
                 }
+            }
+            // Load group_items.json
+            {
+                GROUP_ITEMS = ReadJSON<Dictionary<long, List<long>>>("group_items");
             }
             // Load locations.json
             {
@@ -260,6 +266,11 @@ namespace Archipelago
             if (Authenticated)
             {
                 return true;
+            }
+
+            if (ServerData.host_name is null || ServerData.host_name.Length == 0)
+            {
+                return false;
             }
             // Start the archipelago session.
             Session = ArchipelagoSessionFactory.CreateSession(ServerData.host_name);
@@ -419,7 +430,7 @@ namespace Archipelago
 
         public static void Resync()
         {
-            Debug.Log("Running Item resync with " + Session.Items.AllItemsReceived.Count + "items.");
+            Debug.Log("Running Item resync with " + Session.Items.AllItemsReceived.Count + " items.");
             var done = new HashSet<long>();
             foreach (var networkItem in Session.Items.AllItemsReceived)
             {
@@ -433,7 +444,14 @@ namespace Archipelago
         
         public static void Unlock(long apItemID)
         {
-            
+            if (GROUP_ITEMS.ContainsKey(apItemID))
+            {
+                foreach (var subUnlock in GROUP_ITEMS[apItemID])
+                {
+                    Unlock(subUnlock);
+                }
+                return;
+            }
             ITEM_CODE_TO_TECHTYPE.TryGetValue(apItemID, out var techType);
             if (techType == TechType.None || KnownTech.Contains(techType))
             {
@@ -495,7 +513,19 @@ namespace Archipelago
             else
             {
                 // Blueprint
-                KnownTech.Add(techType, true);
+                if (ArchipelagoPlugin.Zero)
+                {
+                    typeof(KnownTech).GetMethod("Add", BindingFlags.Public | BindingFlags.Static).Invoke(
+                        null,
+                        new object[] {techType, true, true});
+                }
+                else
+                {
+                    typeof(KnownTech).GetMethod("Add", BindingFlags.Public | BindingFlags.Static).Invoke(
+                        null,
+                        new object[] {techType, true});
+                }
+                
             }
         }
 

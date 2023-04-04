@@ -122,10 +122,6 @@ namespace Archipelago
                     }
                     
                     GUI.Label(new Rect(16, 36, 1000, 20), text);
-                    
-                    // TODO: find a way to display this
-                    //GUI.Label(new Rect(16, 56, 1000, 20), 
-                    //    APState.TrackedAngle.ToString());
                 }
 
                 if (APState.TrackedFishCount > 0 && APState.TrackedMode != TrackerMode.Disabled)
@@ -133,9 +129,8 @@ namespace Archipelago
                     GUI.Label(new Rect(16, 56, 1000, 22), 
                         "Fish left: "+APState.TrackedFishCount + ". Such as: "+APState.TrackedFish);
                 }
-
-                if (!ReferenceEquals(EscapePod.main, null) &&
-                    (EscapePod.main.transform.position - Player.main.transform.position).magnitude < 10f)
+                
+                if (PlayerNearStart())
                 {
                     GUI.Label(new Rect(16, 76, 1000, 22), 
                         "Goal: "+APState.Goal);
@@ -154,13 +149,10 @@ namespace Archipelago
                                                           TrackerThread.LogicVehicleDepth));
                     }
                 }
-
                 if (!APState.TrackerProcessing.IsAlive)
                 {
-                    {
-                        GUI.Label(new Rect(16, 116, 1000, 22), 
-                            "Error: Tracker Thread died. Tracker will not update.");
-                    }
+                    GUI.Label(new Rect(16, 116, 1000, 22), 
+                        "Error: Tracker Thread died. Tracker will not update.");
                 }
             }
 
@@ -233,6 +225,27 @@ namespace Archipelago
 #endif
         }
 
+        public bool PlayerNearStart()
+        {
+            if (ArchipelagoPlugin.Zero)
+            {
+                return true;
+            }
+
+            var pod = ArchipelagoPlugin.SubnauticaEscapePod.GetField("main")?.GetValue(ArchipelagoPlugin.SubnauticaEscapePod);
+            if (pod is null)
+            {
+                return false;
+            }
+            //EscapePod.main.transform
+            var podTransform = ArchipelagoPlugin.SubnauticaEscapePod.GetProperty("transform")?.GetValue(pod) as Transform;
+            if (podTransform is null)
+            {
+                return false;
+            }
+            return (podTransform.position - Player.main.transform.position).magnitude < 10f;
+        }
+        
         private void Start()
         {
             RegisterCmds();
@@ -480,22 +493,22 @@ namespace Archipelago
     internal class StoryHandTarget_OnHandClick_Patch
     {
         [HarmonyPrefix]
-        public static bool PickupPDA(StoryHandTarget __instance)
+        public static bool Interact(StoryHandTarget __instance)
         {
-            if (APState.CheckLocation(__instance.gameObject.transform.position))
+            APState.CheckLocation(__instance.gameObject.transform.position);
+
+            var generic_console = __instance.gameObject.GetComponent<GenericConsole>();
+            if (generic_console != null)
             {
-                var generic_console = __instance.gameObject.GetComponent<GenericConsole>();
-                if (generic_console != null)
-                {
-                    // Change its color
-                    generic_console.gotUsed = true;
+                // Change its color
+                generic_console.gotUsed = true;
 
-                    var UpdateState_method = typeof(GenericConsole).GetMethod("UpdateState", BindingFlags.NonPublic | BindingFlags.Instance);
-                    UpdateState_method.Invoke(generic_console, new object[] { });
+                var UpdateState_method = typeof(GenericConsole).GetMethod("UpdateState", BindingFlags.NonPublic | BindingFlags.Instance);
+                UpdateState_method.Invoke(generic_console, new object[] { });
 
-                    return false; // Don't let the item in the console be given. (Like neptune blueprint)
-                }
+                return false; // Don't let the item in the console be given. (Like neptune blueprint)
             }
+
             return true;
         }
     }
@@ -660,10 +673,14 @@ namespace Archipelago
 
     [HarmonyPatch(typeof(MainGameController))]
     [HarmonyPatch("Update")]
-    internal class MainGameController_Update_Patch
+    internal class MainGameControllerUpdatePatch
     {
         private static bool IsSafeToUnlock()
         {
+            if (!Player.main.playerController.inputEnabled)
+            {
+                return false;
+            }
             if (APState.unlock_dequeue_timeout > 0.0f)
             {
                 return false;
@@ -674,7 +691,7 @@ namespace Archipelago
                 return false;
             }
 
-            if (LaunchRocket.isLaunching || (EscapePod.main != null && EscapePod.main.IsPlayingIntroCinematic()))
+            if (!ArchipelagoPlugin.Zero && SubnauticaCinematicPlaying())
             {
                 return false;
             }
@@ -685,6 +702,11 @@ namespace Archipelago
             }
 
             return !SaveLoadManager.main.isSaving;
+        }
+
+        private static bool SubnauticaCinematicPlaying()
+        {
+            return LaunchRocket.isLaunching || (EscapePod.main != null && EscapePod.main.IsPlayingIntroCinematic());
         }
 
         [HarmonyPostfix]
@@ -788,58 +810,7 @@ namespace Archipelago
     //    }
     //}
 
-    // Ship start already exploded
-    [HarmonyPatch(typeof(EscapePod))]
-    [HarmonyPatch("StopIntroCinematic")]
-    internal class EscapePod_StopIntroCinematic_Patch
-    {
-        [HarmonyPostfix]
-        public static void GameReady(EscapePod __instance)
-        {
-            DevConsole.SendConsoleCommand("explodeship");
-            APState.ServerData.index = 0; // New game detected
-        }
-    }
 
-    // Advance rocket stage, but don't add to known tech the next stage! We'll find them in the world
-    [HarmonyPatch(typeof(Rocket))]
-    [HarmonyPatch("AdvanceRocketStage")]
-    internal class Rocket_AdvanceRocketStage_Patch
-    {
-        [HarmonyPrefix]
-        static public bool AdvanceRocketStage(Rocket __instance)
-        {
-            __instance.currentRocketStage++;
-            if (__instance.currentRocketStage == 5)
-            {
-                var isFinishedMember = typeof(Rocket).GetField("isFinished", BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.Instance);
-                isFinishedMember.SetValue(__instance, true);
-
-                var IsAnyRocketReadyMember = typeof(Rocket).GetProperty("IsAnyRocketReady", BindingFlags.Static);
-                IsAnyRocketReadyMember.SetValue(null, true);
-            }
-            //KnownTech.Add(__instance.GetCurrentStageTech(), true); // This is the part we don't want
-
-            return false;
-        }
-    }
-
-    [HarmonyPatch(typeof(RocketConstructor))]
-    [HarmonyPatch("StartRocketConstruction")]
-    internal class RocketConstructor_StartRocketConstruction_Patch
-    {
-        [HarmonyPrefix]
-        public static bool StartRocketConstruction(RocketConstructor __instance)
-        {
-            TechType currentStageTech = __instance.rocket.GetCurrentStageTech();
-            if (!KnownTech.Contains(currentStageTech))
-            {
-                return false;
-            }
-
-            return true;
-        }
-    }
     
     [HarmonyPatch(typeof(Story.UnlockBlueprintData))]
     [HarmonyPatch("Trigger")]
@@ -859,34 +830,9 @@ namespace Archipelago
         }
     }
 
-    // When launching the rocket, send goal achieved to archipelago
-    [HarmonyPatch(typeof(LaunchRocket))]
-    [HarmonyPatch("SetLaunchStarted")]
-    internal class LaunchRocket_SetLaunchStarted_Patch
-    {
-        [HarmonyPrefix]
-        public static void SetLaunchStarted()
-        {
-            APState.send_completion();
-        }
-    }
-    [HarmonyPatch(typeof(StoryGoalCustomEventHandler))]
-    [HarmonyPatch("NotifyGoalComplete")]
-    internal class StoryGoalCustomEventHandler_NotifyGoalComplete_Patch
-    {
-        [HarmonyPrefix]
-        public static void NotifyGoalComplete(string key)
-        {
-            if (key == APState.GoalEvent)
-            {
-                APState.send_completion();
-            }
-        }
-    }
-    [HarmonyPatch(typeof(PDAEncyclopedia), "Add", typeof(string), typeof(PDAEncyclopedia.Entry), typeof(bool))]
+    // Different target method signature based on game, manual patching is done.
     internal class CustomPDA
     {
-        [HarmonyPostfix]
         public static void Add(string key, PDAEncyclopedia.Entry entry)
         {
             if (APState.Encyclopdia.TryGetValue(key, out var id))
@@ -910,6 +856,78 @@ namespace Archipelago
                 }
             }
             APState.DeathLinkKilling = false;
+        }
+    }
+    
+    // Subnautica specific hooks
+    // Ship start already exploded
+    internal class EscapePod_StopIntroCinematic_Patch
+    {
+        [HarmonyPostfix]
+        public static void GameReady(EscapePod __instance)
+        {
+            DevConsole.SendConsoleCommand("explodeship");
+            APState.ServerData.index = 0; // New game detected
+        }
+    }
+
+    // Advance rocket stage, but don't add to known tech the next stage! We'll find them in the world
+    internal class Rocket_AdvanceRocketStage_Patch
+    {
+        [HarmonyPrefix]
+        public static bool AdvanceRocketStage(Rocket __instance)
+        {
+            __instance.currentRocketStage++;
+            if (__instance.currentRocketStage == 5)
+            {
+                var isFinishedMember = typeof(Rocket).GetField("isFinished", BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.Instance);
+                isFinishedMember.SetValue(__instance, true);
+
+                var IsAnyRocketReadyMember = typeof(Rocket).GetProperty("IsAnyRocketReady", BindingFlags.Static);
+                IsAnyRocketReadyMember.SetValue(null, true);
+            }
+            //KnownTech.Add(__instance.GetCurrentStageTech(), true); // This is the part we don't want
+
+            return false;
+        }
+    }
+    
+    internal class RocketConstructor_StartRocketConstruction_Patch
+    {
+        [HarmonyPrefix]
+        public static bool StartRocketConstruction(RocketConstructor __instance)
+        {
+            TechType currentStageTech = __instance.rocket.GetCurrentStageTech();
+            if (!KnownTech.Contains(currentStageTech))
+            {
+                return false;
+            }
+
+            return true;
+        }
+    }
+    // When launching the rocket, send goal achieved to archipelago
+    internal class LaunchRocket_SetLaunchStarted_Patch
+    {
+        [HarmonyPrefix]
+        public static bool SetLaunchStarted()
+        {
+            APState.send_completion();
+            return true;
+        }
+    }
+    
+    [HarmonyPatch(typeof(StoryGoalCustomEventHandler))]
+    [HarmonyPatch("NotifyGoalComplete")]
+    internal class StoryGoalCustomEventHandler_NotifyGoalComplete_Patch
+    {
+        [HarmonyPrefix]
+        public static void NotifyGoalComplete(string key)
+        {
+            if (key == APState.GoalEvent)
+            {
+                APState.send_completion();
+            }
         }
     }
 }
