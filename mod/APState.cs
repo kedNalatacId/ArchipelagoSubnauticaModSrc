@@ -341,10 +341,7 @@ namespace Archipelago
             else if (loginResult is LoginFailure loginFailure)
             {
                 Authenticated = false;
-
                 Debug.LogError(String.Join("\n", loginFailure.Errors));
-                Debug.LogError("Failure:" + loginFailure.Errors[0] + "|");
-                
                 Session = null;
                 
                 // looks like missing encryption could be the cause:
