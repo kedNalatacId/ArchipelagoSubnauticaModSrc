@@ -75,7 +75,14 @@ namespace Archipelago
             string ap_ver = "Archipelago v" + APState.AP_VERSION[0] + "." + APState.AP_VERSION[1] + "." + APState.AP_VERSION[2];
             if (APState.Session != null)
             {
-                GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Connected");
+                if (APState.Authenticated)
+                {
+                    GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Connected");
+                }
+                else
+                {
+                    GUI.Label(new Rect(16, 16, 300, 20), ap_ver + " Status: Authentication failed");
+                }
             }
             else
             {

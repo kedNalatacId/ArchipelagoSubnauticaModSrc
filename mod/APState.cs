@@ -260,8 +260,13 @@ namespace Archipelago
             TrackerProcessing.IsBackground = true;
             TrackerProcessing.Start();
         }
-        
+
         public static bool Connect()
+        {
+            return Connect(false);
+        }
+        
+        public static bool Connect(bool attemptEncrypted)
         {
             if (Authenticated)
             {
@@ -272,14 +277,22 @@ namespace Archipelago
             {
                 return false;
             }
+            
+            string hostName = ServerData.host_name;
+            if (attemptEncrypted)
+            {
+                hostName = "wss://" + hostName;
+                Debug.Log("Attempting wss connection: " + hostName);
+            }
+
+            
             // Start the archipelago session.
-            Session = ArchipelagoSessionFactory.CreateSession(ServerData.host_name);
+            Session = ArchipelagoSessionFactory.CreateSession(hostName);
             Session.MessageLog.OnMessageReceived += Session_MessageReceived;
             Session.Socket.ErrorReceived += Session_ErrorReceived;
             Session.Socket.SocketClosed += Session_SocketClosed;
 
             HashSet<TechType> vanillaTech = new HashSet<TechType>();
-            
             LoginResult loginResult = Session.TryConnectAndLogin(
                 "Subnautica", 
                 ServerData.slot_name,
@@ -305,9 +318,9 @@ namespace Archipelago
                 
                 Authenticated = true;
                 state = State.InGame;
-                if (loginSuccess.SlotData.ContainsKey("swim_rule"))
+                if (loginSuccess.SlotData.TryGetValue("swim_rule", out var value))
                 {
-                    SwimRule = (string)loginSuccess.SlotData["swim_rule"];
+                    SwimRule = (string)value;
                 }
                 Goal = (string)loginSuccess.SlotData["goal"];
                 GoalMapping.TryGetValue(Goal, out GoalEvent);
@@ -328,10 +341,23 @@ namespace Archipelago
             else if (loginResult is LoginFailure loginFailure)
             {
                 Authenticated = false;
-                ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", loginFailure.Errors));
+
                 Debug.LogError(String.Join("\n", loginFailure.Errors));
-                Session.Socket.Disconnect();
+                Debug.LogError("Failure:" + loginFailure.Errors[0] + "|");
+                
                 Session = null;
+                
+                // looks like missing encryption could be the cause:
+                if (!attemptEncrypted && 
+                    !ServerData.host_name.StartsWith("wss://") && 
+                    !ServerData.host_name.StartsWith("ws://") &&
+                    loginFailure.Errors.Length == 1 &&
+                    loginFailure.Errors[0] == "Connection timed out.")
+                {
+                    return Connect(true);
+                }
+                ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", loginFailure.Errors));
+                
             }
             // all fragments
             TechFragmentsToDestroy = new HashSet<TechType>(APState.tech_fragments);
@@ -364,13 +390,14 @@ namespace Archipelago
 
         public static void Disconnect()
         {
+            Authenticated = false;
+            state = State.Menu;
             if (Session != null && Session.Socket != null && Session.Socket.Connected)
             {
                 Session.Socket.Disconnect();
             }
+
             Session = null;
-            Authenticated = false;
-            state = State.Menu;
         }
         public static void DeathLinkReceived(DeathLink deathLink)
         {
