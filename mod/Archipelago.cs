@@ -570,7 +570,7 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void GameReady()
         {
-            // Make sure the say command is registered
+            // Make sure the commands are registered
             APState.ArchipelagoUI.RegisterCmds();
         }
     }

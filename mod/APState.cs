@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -37,7 +38,7 @@ namespace Archipelago
             { "infected", "Infection_Progress4" },
         };
         
-        public static int[] AP_VERSION = new int[] { 0, 3, 9 };
+        public static int[] AP_VERSION = new int[] { 0, 4, 0 };
         public static APData ServerData = new APData();
         public static DeathLinkService DeathLinkService = null;
         public static Dictionary<long, TechType> ITEM_CODE_TO_TECHTYPE = new ();
@@ -53,6 +54,7 @@ namespace Archipelago
         public static string Goal = "launch";
         public static string GoalEvent = "";
         public static string SwimRule = "";
+        public static bool FreeSamples;
         public static bool Silent = false;
         public static Thread TrackerProcessing;
         public static long TrackedLocationsCount = 0;
@@ -318,9 +320,13 @@ namespace Archipelago
                 
                 Authenticated = true;
                 state = State.InGame;
-                if (loginSuccess.SlotData.TryGetValue("swim_rule", out var value))
+                if (loginSuccess.SlotData.TryGetValue("swim_rule", out var swim_rule))
                 {
-                    SwimRule = (string)value;
+                    SwimRule = (string)swim_rule;
+                }
+                if (loginSuccess.SlotData.TryGetValue("free_samples", out var free_samples))
+                {
+                    FreeSamples = Convert.ToInt32(free_samples) > 0;
                 }
                 Goal = (string)loginSuccess.SlotData["goal"];
                 GoalMapping.TryGetValue(Goal, out GoalEvent);
@@ -468,9 +474,9 @@ namespace Archipelago
         
         public static void Unlock(long apItemID)
         {
-            if (GROUP_ITEMS.ContainsKey(apItemID))
+            if (GROUP_ITEMS.TryGetValue(apItemID, out var groupUnlock))
             {
-                foreach (var subUnlock in GROUP_ITEMS[apItemID])
+                foreach (var subUnlock in groupUnlock)
                 {
                     Unlock(subUnlock);
                 }
@@ -514,6 +520,10 @@ namespace Archipelago
 
                         MethodInfo methodUnlock = typeof(PDAScanner).GetMethod("Unlock", BindingFlags.NonPublic | BindingFlags.Static, null, new Type[] { typeof(PDAScanner.EntryData), typeof(bool), typeof(bool), typeof(bool) }, null);
                         methodUnlock.Invoke(null, new object[] { entryData, true, false, true });
+                        if (FreeSamples)
+                        {
+                            GiveItem(entryData.blueprint);
+                        }
                     }
                     else
                     {
@@ -549,10 +559,45 @@ namespace Archipelago
                         null,
                         new object[] {techType, true});
                 }
-                
+
+                if (FreeSamples)
+                {
+                    GiveItem(techType);
+                }
             }
         }
 
+        private static IEnumerator GiveItemAsync(TechType techType)
+        {
+            TaskResult<GameObject> prefabResult = new TaskResult<GameObject>();
+            yield return CraftData.InstantiateFromPrefabAsync(techType, prefabResult, false);
+            GameObject gameObject = prefabResult.Get();
+            if (gameObject == null)
+            {
+                yield break;
+            }
+            Pickupable pickupable = gameObject.GetComponent<Pickupable>();
+
+            if (pickupable != null)
+            {
+                Inventory.main.ForcePickup(pickupable);
+                var techData = CraftData.Get(techType, skipWarnings: true);
+                if (techData != null)
+                {
+                    for (int i = 0; i < techData.linkedItemCount; i++)
+                    {
+                        var linkedItem = techData.GetLinkedItem(i);
+                        yield return GiveItemAsync(linkedItem);
+                    }
+                }
+            }
+        }
+
+        public static void GiveItem(TechType techType)
+        {
+            Inventory.main.StartCoroutine(GiveItemAsync(techType));
+        }
+        
         public static void set_deathlink()
         {
             if (DeathLinkService == null)
