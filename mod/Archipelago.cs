@@ -275,7 +275,6 @@ namespace Archipelago
             [HarmonyPrefix]
             private static bool AllowExclamationPoint(string text, int pos, char ch, ref char __result)
             {
-                Debug.LogError(text + "Char:" + ch);
                 if (ch == '!')
                 {
                     __result = ch;

@@ -567,27 +567,65 @@ namespace Archipelago
             }
         }
 
-        private static IEnumerator GiveItemAsync(TechType techType)
+        private static IEnumerator PickUp(TechType techType)
         {
             TaskResult<GameObject> prefabResult = new TaskResult<GameObject>();
             yield return CraftData.InstantiateFromPrefabAsync(techType, prefabResult, false);
+                
             GameObject gameObject = prefabResult.Get();
             if (gameObject == null)
             {
+                Debug.LogError("Object " + techType + " failed to be created.");
                 yield break;
             }
+            
             Pickupable pickupable = gameObject.GetComponent<Pickupable>();
-
-            if (pickupable != null)
+            if (pickupable == null)
+            {
+                Debug.LogError("Object " + techType + " was not pickupable.");
+                UnityEngine.Object.Destroy(gameObject);
+            }
+            else
             {
                 Inventory.main.ForcePickup(pickupable);
+            }
+        }
+        
+        private static IEnumerator GiveItemAsync(TechType techType, bool giveLinked = false, bool filterCategory = true)
+        {
+            if (CraftData.GetBuilderIndex(techType, out TechGroup group, out TechCategory category, out int index))
+            {
+                if (filterCategory && (
+                        category == TechCategory.Cyclops ||
+                        category == TechCategory.BaseRoom ||
+                        category == TechCategory.BasePiece ||
+                        category == TechCategory.Misc ||
+                        category == TechCategory.Constructor ||
+                        category == TechCategory.BaseWall ||
+                        category == TechCategory.ExteriorLight ||
+                        category == TechCategory.ExteriorModule ||
+                        category == TechCategory.ExteriorOther ||
+                        category == TechCategory.InteriorModule ||
+                        category == TechCategory.InteriorPiece ||
+                        category == TechCategory.InteriorRoom
+                    ))
+                {
+                    yield break;
+                }
+
+                yield return PickUp(techType);
+                
+                if (!giveLinked)
+                {
+                    yield break;
+                }
                 var techData = CraftData.Get(techType, skipWarnings: true);
                 if (techData != null)
                 {
                     for (int i = 0; i < techData.linkedItemCount; i++)
                     {
                         var linkedItem = techData.GetLinkedItem(i);
-                        yield return GiveItemAsync(linkedItem);
+                        yield return PickUp(linkedItem);
                     }
                 }
             }
@@ -595,7 +633,7 @@ namespace Archipelago
 
         public static void GiveItem(TechType techType)
         {
-            Inventory.main.StartCoroutine(GiveItemAsync(techType));
+            Inventory.main.StartCoroutine(GiveItemAsync(techType, giveLinked: true));
         }
         
         public static void set_deathlink()
