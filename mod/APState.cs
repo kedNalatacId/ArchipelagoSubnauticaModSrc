@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
-using Archipelago.MultiClient.Net.Helpers;
+using Archipelago.MultiClient.Net.MessageLog.Messages;
 using Archipelago.MultiClient.Net.Packets;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -265,11 +265,6 @@ namespace Archipelago
 
         public static bool Connect()
         {
-            return Connect(false);
-        }
-        
-        public static bool Connect(bool attemptEncrypted)
-        {
             if (Authenticated)
             {
                 return true;
@@ -281,12 +276,6 @@ namespace Archipelago
             }
             
             string hostName = ServerData.host_name;
-            if (attemptEncrypted)
-            {
-                hostName = "wss://" + hostName;
-                Debug.Log("Attempting wss connection: " + hostName);
-            }
-
             
             // Start the archipelago session.
             Session = ArchipelagoSessionFactory.CreateSession(hostName);
@@ -349,18 +338,7 @@ namespace Archipelago
                 Authenticated = false;
                 Debug.LogError(String.Join("\n", loginFailure.Errors));
                 Session = null;
-                
-                // looks like missing encryption could be the cause:
-                if (!attemptEncrypted && 
-                    !ServerData.host_name.StartsWith("wss://") && 
-                    !ServerData.host_name.StartsWith("ws://") &&
-                    loginFailure.Errors.Length == 1 &&
-                    loginFailure.Errors[0] == "Connection timed out.")
-                {
-                    return Connect(true);
-                }
                 ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", loginFailure.Errors));
-                
             }
             // all fragments
             TechFragmentsToDestroy = new HashSet<TechType>(APState.tech_fragments);
@@ -397,7 +375,7 @@ namespace Archipelago
             state = State.Menu;
             if (Session != null && Session.Socket != null && Session.Socket.Connected)
             {
-                Session.Socket.Disconnect();
+                Task.Run(() => {Session.Socket.DisconnectAsync(); }).Wait();
             }
 
             Session = null;
