@@ -19,6 +19,7 @@ namespace Archipelago
         public static float BaseDepth = 600f;
         public static float LogicSwimDepth = BaseDepth;
         public static float LogicVehicleDepth = 0;
+        public static string LogicVehicle = "Vehicle";
         public static bool InLogic(long locID)
         {
             // Gating items
@@ -128,6 +129,8 @@ namespace Archipelago
         {
             bool hasBay;
             float maxDepth = 0f;
+            string logicVehicleName = "Vehicle";
+            
             try
             {
                 hasBay = KnownTech.Contains(TechType.Constructor);
@@ -136,13 +139,19 @@ namespace Archipelago
             {
                 return;
             }
-            bool hasModStation = KnownTech.Contains(TechType.Workbench);
-            bool hasUpgradeConsole = KnownTech.Contains(TechType.BaseUpgradeConsole);
+
             if (!hasBay)
             {
                 LogicVehicleDepth = 0;
+                LogicVehicle = logicVehicleName;
                 return;
             }
+            
+            bool hasModStation = KnownTech.Contains(TechType.Workbench);
+            bool hasUpgradeConsole = KnownTech.Contains(TechType.BaseUpgradeConsole) && 
+                                     KnownTech.Contains(TechType.BaseMoonpool);
+            float oldDepth = maxDepth;
+            
             if (KnownTech.Contains(TechType.Seamoth))
             {
                 maxDepth = Math.Max(maxDepth, 200f);
@@ -158,7 +167,12 @@ namespace Archipelago
                         }
                     }
                 }
+                if (Math.Abs(oldDepth - maxDepth) > 1)
+                {
+                    logicVehicleName = "Seamoth";
+                }
             }
+            oldDepth = maxDepth;
             if (KnownTech.Contains(TechType.Exosuit))
             {
                 maxDepth = Math.Max(maxDepth, 900f);
@@ -170,7 +184,12 @@ namespace Archipelago
                         maxDepth = Math.Max(maxDepth, 1700f);
                     }
                 }
+                if (Math.Abs(oldDepth - maxDepth) > 1)
+                {
+                    logicVehicleName = "Prawn Suit";
+                }
             }
+            oldDepth = maxDepth;
             if (KnownTech.Contains(TechType.Cyclops))
             {
                 maxDepth = Math.Max(maxDepth, 500f);
@@ -186,8 +205,13 @@ namespace Archipelago
                         }
                     }
                 }
+                if (Math.Abs(oldDepth - maxDepth) > 1)
+                {
+                    logicVehicleName = "Cyclops";
+                }
             }
 
+            LogicVehicle = logicVehicleName;
             LogicVehicleDepth = maxDepth;
         }
         

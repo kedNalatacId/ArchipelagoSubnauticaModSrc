@@ -151,9 +151,11 @@ namespace Archipelago
                     else
                     {
                         GUI.Label(new Rect(16, 96, 1000, 22), 
-                            "Swim Rule: "+APState.SwimRule + 
+                            "Swim Rule: "+APState.SwimRule +
                             " Current Logical Depth: " + (TrackerThread.LogicSwimDepth + 
-                                                          TrackerThread.LogicVehicleDepth));
+                                                          TrackerThread.LogicVehicleDepth) + 
+                            " = " + TrackerThread.LogicSwimDepth + " (Swim) + " + TrackerThread.LogicVehicleDepth + 
+                            " (" + TrackerThread.LogicVehicle + ")");
                     }
                 }
                 if (!APState.TrackerProcessing.IsAlive)
