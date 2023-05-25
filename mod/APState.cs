@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -17,6 +16,7 @@ using UnityEngine;
 
 namespace Archipelago
 {
+
     public static class APState
     {
         public struct Location
@@ -38,12 +38,9 @@ namespace Archipelago
             { "infected", "Infection_Progress4" },
         };
         
-        public static int[] AP_VERSION = new int[] { 0, 4, 0 };
-        public static APData ServerData = new APData();
+        public static int[] AP_VERSION = new int[] { 0, 4, 1 };
+        public static APConnectInfo ServerConnectInfo = new APConnectInfo();
         public static DeathLinkService DeathLinkService = null;
-        public static Dictionary<long, TechType> ITEM_CODE_TO_TECHTYPE = new ();
-        public static Dictionary<long, Location> LOCATIONS = new ();
-        public static Dictionary<long, List<long>> GROUP_ITEMS = new ();
         public static bool DeathLinkKilling = false; // indicates player is currently getting DeathLinked
         public static Dictionary<string, int> archipelago_indexes = new ();
         public static float unlock_dequeue_timeout = 0.0f;
@@ -156,9 +153,6 @@ namespace Archipelago
         };
         
         public static TrackerMode TrackedMode = TrackerMode.Logical;
-        public static Dictionary<string, long> Encyclopdia;
-        public static Dictionary<TechType, List<long>> LogicDict;
-
         public static HashSet<TechType> TechFragmentsToDestroy = new HashSet<TechType>();
 
 #if DEBUG
@@ -195,74 +189,6 @@ namespace Archipelago
         }
 #endif
 
-        public static T ReadJSON<T>(string filename)
-        {
-            try
-            {
-                var reader = File.OpenText(BepInEx.Paths.PluginPath+"/Archipelago/" + filename + ".json");
-                var content = reader.ReadToEnd();
-                reader.Close();
-                var data = JsonConvert.DeserializeObject<T>(content);
-                return data;
-            }
-            catch (Exception e)
-            {
-                Debug.LogError("Could not read " + filename + ".json\n" + e);
-                return default;
-            }
-        }
-        
-        public static void Init()
-        {
-            // Load items.json
-            {
-                var data = ReadJSON<Dictionary<int, string>>("items");
-                foreach (var itemJson in data)
-                {
-                    // not all tech types exist in both games
-                    var success = Enum.TryParse(itemJson.Value, out TechType tech);
-                    if (success)
-                    {
-                        ITEM_CODE_TO_TECHTYPE[itemJson.Key] = tech;
-                    }
-                }
-            }
-            // Load group_items.json
-            {
-                GROUP_ITEMS = ReadJSON<Dictionary<long, List<long>>>("group_items");
-            }
-            // Load locations.json
-            {
-                var data = ReadJSON<Dictionary<int, Dictionary<string, float>>>("locations");
-
-                foreach (var locationJson in data)
-                {
-                    Location location = new Location();
-                    location.ID = locationJson.Key;
-                    var vec = locationJson.Value;
-                    location.Position = new Vector3(
-                        vec["x"],
-                        vec["y"],
-                        vec["z"]
-                    );
-                    LOCATIONS.Add(location.ID, location);
-                }
-            }
-            // Load encyclopedia.json
-            {
-                Encyclopdia = ReadJSON<Dictionary<string, long>>("encyclopedia");
-            }
-            // Load logic.json
-            {
-                LogicDict = ReadJSON<Dictionary<TechType, List<long>>>("logic");
-            }
-            
-            // launch thread
-            TrackerProcessing = new Thread(TrackerThread.DoWork);
-            TrackerProcessing.IsBackground = true;
-            TrackerProcessing.Start();
-        }
-
         public static bool Connect()
         {
             if (Authenticated)
@@ -270,12 +196,12 @@ namespace Archipelago
                 return true;
             }
 
-            if (ServerData.host_name is null || ServerData.host_name.Length == 0)
+            if (ServerConnectInfo.host_name is null || ServerConnectInfo.host_name.Length == 0)
             {
                 return false;
             }
             
-            string hostName = ServerData.host_name;
+            string hostName = ServerConnectInfo.host_name;
             
             // Start the archipelago session.
             Session = ArchipelagoSessionFactory.CreateSession(hostName);
@@ -286,12 +212,12 @@ namespace Archipelago
             HashSet<TechType> vanillaTech = new HashSet<TechType>();
             LoginResult loginResult = Session.TryConnectAndLogin(
                 "Subnautica", 
-                ServerData.slot_name,
+                ServerConnectInfo.slot_name,
                 ItemsHandlingFlags.AllItems, 
                 new Version(AP_VERSION[0], AP_VERSION[1], AP_VERSION[2]),
                 null, 
                 "",
-                ServerData.password == "" ? null : ServerData.password);
+                ServerConnectInfo.password == "" ? null : ServerConnectInfo.password);
 
             if (loginResult is LoginSuccessful loginSuccess)
             {
@@ -300,7 +226,7 @@ namespace Archipelago
                         BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(storage);
                 if (rawPath != null)
                 {
-                    ServerData.GetAsLastConnect().WriteToFile(rawPath + "/archipelago_last_connection.json");
+                    ServerConnectInfo.GetAsLastConnect().WriteToFile(rawPath + "/archipelago_last_connection.json");
                 }
                 else
                 {
@@ -329,7 +255,7 @@ namespace Archipelago
                     
                 
                 Debug.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData));
-                ServerData.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;
+                ServerConnectInfo.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;
                 set_deathlink();
 
             }
@@ -394,7 +320,7 @@ namespace Archipelago
         {
             long closest_id = -1;
             float closestDist = 100000.0f;
-            foreach (var location in LOCATIONS)
+            foreach (var location in ArchipelagoData.Locations)
             {
                 var dist = Vector3.Distance(location.Value.Position, position);
                 if (dist < closestDist && dist < 1.0f)
@@ -429,10 +355,10 @@ namespace Archipelago
 
         public static void SendLocID(long id)
         {
-            if (ServerData.@checked.Add(id))
+            if (ServerConnectInfo.@checked.Add(id))
             {
                 Task.Run(() => {Session.Locations.CompleteLocationChecksAsync(
-                    ServerData.@checked.Except(Session.Locations.AllLocationsChecked).ToArray()); }).ConfigureAwait(false);
+                    ServerConnectInfo.@checked.Except(Session.Locations.AllLocationsChecked).ToArray()); }).ConfigureAwait(false);
             }
         }
 
@@ -440,32 +366,58 @@ namespace Archipelago
         {
             Debug.Log("Running Item resync with " + Session.Items.AllItemsReceived.Count + " items.");
             var done = new HashSet<long>();
-            foreach (var networkItem in Session.Items.AllItemsReceived)
+            for (int i = 0; i < Session.Items.AllItemsReceived.Count; i++)
             {
-                if (!done.Contains(networkItem.Item))
+                var itemID = Session.Items.AllItemsReceived[i].Item;
+                if (ArchipelagoData.ItemCodeToItemType[itemID] == ArchipelagoItemType.Resource || !done.Contains(itemID))
                 {
-                    Unlock(networkItem.Item);
-                    done.Add(networkItem.Item);
+                    Unlock(itemID, i);
+                    done.Add(itemID);
                 }
             }
         }
         
-        public static void Unlock(long apItemID)
+        public static void Unlock(long apItemID, long index)
         {
-            if (GROUP_ITEMS.TryGetValue(apItemID, out var groupUnlock))
+            if (ArchipelagoData.GroupItems.TryGetValue(apItemID, out var groupUnlock))
             {
                 foreach (var subUnlock in groupUnlock)
                 {
-                    Unlock(subUnlock);
+                    Unlock(subUnlock, index);
                 }
                 return;
             }
-            ITEM_CODE_TO_TECHTYPE.TryGetValue(apItemID, out var techType);
+            
+            ArchipelagoData.ItemCodeToTechType.TryGetValue(apItemID, out var techType);
+            if (ArchipelagoData.ItemCodeToItemType[apItemID] == ArchipelagoItemType.Resource)
+            {
+                HashSet<long> set;
+                if (!ServerConnectInfo.resources_granted.TryGetValue(apItemID, out set))
+                {
+                    set = new();
+                    ServerConnectInfo.resources_granted[apItemID] = set;
+                }
+                if (set.Contains(index))
+                {
+                    // already given resources
+                    return;
+                }
+
+                set.Add(index);
+                for (int i = 0; i < set.Count; i++)
+                {
+                    Inventory.main.StartCoroutine(PickUp(techType));
+                }
+
+                return;
+            }
+
             if (techType == TechType.None || KnownTech.Contains(techType))
             {
                 // Unknown item ID or already known technology.
                 return;
             }
+            
             if (PDAScanner.IsFragment(techType))
             {
                 PDAScanner.EntryData entryData = PDAScanner.GetEntryData(techType);
@@ -556,6 +508,11 @@ namespace Archipelago
                 Debug.LogError("Object " + techType + " failed to be created.");
                 yield break;
             }
+            // in case it can't be picked up, dump it right in front of player for obvious problem.
+            gameObject.transform.position = MainCamera.camera.transform.position + 
+                                            MainCamera.camera.transform.forward * 3f;
+            // This seems to fill batteries to default values when crafted.
+            CrafterLogic.NotifyCraftEnd(gameObject, techType);
             
             Pickupable pickupable = gameObject.GetComponent<Pickupable>();
             if (pickupable == null)
@@ -622,7 +579,7 @@ namespace Archipelago
                 DeathLinkService.OnDeathLinkReceived += DeathLinkReceived;
             }
             
-            if (ServerData.death_link)
+            if (ServerConnectInfo.death_link)
             {
                 DeathLinkService.EnableDeathLink();
             }

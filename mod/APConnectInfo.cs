@@ -2,11 +2,12 @@
 
 namespace Archipelago
 {
-    public class APData : APLastConnectInfo
+    public class APConnectInfo : APLastConnectInfo
     {
         public long index;
-        public HashSet<long> @checked = new HashSet<long>();
+        public HashSet<long> @checked = new ();
         public bool death_link = false;
+        public Dictionary<long, HashSet<long>> resources_granted = new ();
 
         public void FillFromLastConnect(APLastConnectInfo lastConnectInfo)
         {

@@ -23,7 +23,7 @@ namespace Archipelago
         public static bool InLogic(long locID)
         {
             // Gating items
-            foreach (var logic in APState.LogicDict)
+            foreach (var logic in ArchipelagoData.LogicDict)
             {
                 bool hasItem;
                 try
@@ -41,7 +41,7 @@ namespace Archipelago
                 }
             }
             // Depth
-            Vector3 position = APState.LOCATIONS[locID].Position;
+            Vector3 position = ArchipelagoData.Locations[locID].Position;
             return LogicVehicleDepth + LogicSwimDepth > position.y;
 
         }
@@ -264,7 +264,7 @@ namespace Archipelago
                             {
                                 continue;
                             }
-                            dist = Vector3.Distance(playerPos, APState.LOCATIONS[locID].Position);
+                            dist = Vector3.Distance(playerPos, ArchipelagoData.Locations[locID].Position);
                             if (dist < closestDist)
                             {
                                 closestDist = dist;
@@ -280,7 +280,7 @@ namespace Archipelago
                     {
                         APState.TrackedLocationName =
                             APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation);
-                        Vector3 directionVector = APState.LOCATIONS[closestID].Position - 
+                        Vector3 directionVector = ArchipelagoData.Locations[closestID].Position - 
                                                   Player.main.gameObject.transform.position;
                         directionVector.Normalize();
                         APState.TrackedAngle = Vector3.Angle(directionVector, 

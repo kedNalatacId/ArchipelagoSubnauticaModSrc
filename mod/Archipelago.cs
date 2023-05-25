@@ -97,12 +97,12 @@ namespace Archipelago
 
                 bool submit = Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return;
 
-                APState.ServerData.host_name = GUI.TextField(new Rect(150 + 16 + 8, 36, 150, 20), 
-                    APState.ServerData.host_name);
-                APState.ServerData.slot_name = GUI.TextField(new Rect(150 + 16 + 8, 56, 150, 20), 
-                    APState.ServerData.slot_name);
-                APState.ServerData.password = GUI.TextField(new Rect(150 + 16 + 8, 76, 150, 20), 
-                    APState.ServerData.password);
+                APState.ServerConnectInfo.host_name = GUI.TextField(new Rect(150 + 16 + 8, 36, 150, 20), 
+                    APState.ServerConnectInfo.host_name);
+                APState.ServerConnectInfo.slot_name = GUI.TextField(new Rect(150 + 16 + 8, 56, 150, 20), 
+                    APState.ServerConnectInfo.slot_name);
+                APState.ServerConnectInfo.password = GUI.TextField(new Rect(150 + 16 + 8, 76, 150, 20), 
+                    APState.ServerConnectInfo.password);
 
                 if (submit && Event.current.type == EventType.KeyDown)
                 {
@@ -110,7 +110,7 @@ namespace Archipelago
                     submit = false;
                 }
 
-                if ((GUI.Button(new Rect(16, 96, 100, 20), "Connect") || submit) && APState.ServerData.Valid)
+                if ((GUI.Button(new Rect(16, 96, 100, 20), "Connect") || submit) && APState.ServerConnectInfo.Valid)
                 {
                     APState.Connect();
                 }
@@ -348,10 +348,10 @@ namespace Archipelago
         }
         private void OnConsoleCommand_deathlink(NotificationCenter.Notification n)
         {
-            APState.ServerData.death_link = !APState.ServerData.death_link;
+            APState.ServerConnectInfo.death_link = !APState.ServerConnectInfo.death_link;
             APState.set_deathlink();
             
-            if (APState.ServerData.death_link)
+            if (APState.ServerConnectInfo.death_link)
             {
                 Debug.Log("Enabled DeathLink.");
                 ErrorMessage.AddMessage("Enabled DeathLink.");
@@ -583,7 +583,7 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void SaveIntoCurrentSlot(SaveLoadManager.GameInfo info)
         {
-            var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(APState.ServerData));
+            var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(APState.ServerConnectInfo));
             Platform.IO.File.WriteAllBytes(Platform.IO.Path.Combine(SaveLoadManager.GetTemporarySavePath(), 
                 "archipelago.json"), bytes);
         }
@@ -606,11 +606,11 @@ namespace Archipelago
             {
                 using (StreamReader reader = new StreamReader(path))
                 {
-                    APState.ServerData = JsonConvert.DeserializeObject<APData>(reader.ReadToEnd());
+                    APState.ServerConnectInfo = JsonConvert.DeserializeObject<APConnectInfo>(reader.ReadToEnd());
                     
-                    if (APState.Connect() && APState.ServerData.@checked != null)
+                    if (APState.Connect() && APState.ServerConnectInfo.@checked != null)
                     {
-                        APState.Session.Locations.CompleteLocationChecks(APState.ServerData.@checked.ToArray());
+                        APState.Session.Locations.CompleteLocationChecks(APState.ServerConnectInfo.@checked.ToArray());
                     }
                     else
                     {
@@ -621,11 +621,11 @@ namespace Archipelago
             // compat handling, remove later
             else if (APState.archipelago_indexes.ContainsKey(_currentSlot))
             {
-                APState.ServerData.index = APState.archipelago_indexes[_currentSlot];
+                APState.ServerConnectInfo.index = APState.archipelago_indexes[_currentSlot];
             }
             else
             {
-                APState.ServerData.index = 0;
+                APState.ServerConnectInfo.index = 0;
             }
         }
     }
@@ -720,8 +720,8 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void DequeueUnlocks()
         {
-            const int DEQUEUE_COUNT = 2;
-            const float DEQUEUE_TIME = 3.0f;
+            const int dequeueCount = 2;
+            const float dequeueTime = 3.0f;
 
             if (APState.unlock_dequeue_timeout > 0.0f) APState.unlock_dequeue_timeout -= Time.deltaTime;
             if (APState.message_dequeue_timeout > 0.0f) APState.message_dequeue_timeout -= Time.deltaTime;
@@ -731,7 +731,7 @@ namespace Archipelago
             {
                 // We only do x at a time. To not crowd the on screen log/events too fast
                 List<string> to_process = new List<string>();
-                while (to_process.Count < DEQUEUE_COUNT && APState.message_queue.Count > 0)
+                while (to_process.Count < dequeueCount && APState.message_queue.Count > 0)
                 {
                     to_process.Add(APState.message_queue[0]);
                     APState.message_queue.RemoveAt(0);
@@ -740,24 +740,24 @@ namespace Archipelago
                 {
                     ErrorMessage.AddMessage(message);
                 }
-                APState.message_dequeue_timeout = DEQUEUE_TIME;
+                APState.message_dequeue_timeout = dequeueTime;
             }
 
             // Do unlocks
             if (IsSafeToUnlock())
             {
-                if (APState.ServerData.index < APState.Session.Items.AllItemsReceived.Count)
+                if (APState.ServerConnectInfo.index < APState.Session.Items.AllItemsReceived.Count)
                 {
                     APState.Unlock(APState.Session.Items.AllItemsReceived[
-                        Convert.ToInt32(APState.ServerData.index)].Item);
-                    APState.ServerData.index++;
+                        Convert.ToInt32(APState.ServerConnectInfo.index)].Item, APState.ServerConnectInfo.index);
+                    APState.ServerConnectInfo.index++;
                     // We only do x at a time. To not crowd the on screen log/events too fast
-                    APState.unlock_dequeue_timeout = DEQUEUE_TIME;
+                    APState.unlock_dequeue_timeout = dequeueTime;
                     // When at end of queue, validate all item counts.
                     // For some unknown reason, items may be missed sometimes in MultiClient.Net games,
                     // though Subnautica seems to have been particularly susceptible to that.
                     // Regardless, this workaround should take care of the problem.
-                    if (APState.ServerData.index == APState.Session.Items.AllItemsReceived.Count)
+                    if (APState.ServerConnectInfo.index == APState.Session.Items.AllItemsReceived.Count)
                     {
                         APState.Resync();
                     }
@@ -783,7 +783,7 @@ namespace Archipelago
             var lastConnectInfo = APLastConnectInfo.LoadFromFile(rawPath + "/archipelago_last_connection.json");
             if (lastConnectInfo != null)
             {
-                APState.ServerData.FillFromLastConnect(lastConnectInfo);
+                APState.ServerConnectInfo.FillFromLastConnect(lastConnectInfo);
             }
         }
     }
@@ -843,7 +843,7 @@ namespace Archipelago
     {
         public static void Add(string key, PDAEncyclopedia.Entry entry)
         {
-            if (APState.Encyclopdia.TryGetValue(key, out var id))
+            if (ArchipelagoData.Encyclopdia.TryGetValue(key, out var id))
             {
                 APState.SendLocID(id);
             }
@@ -858,9 +858,9 @@ namespace Archipelago
         {
             if (!APState.DeathLinkKilling)
             {
-                if (APState.ServerData.death_link)
+                if (APState.ServerConnectInfo.death_link)
                 {
-                    APState.DeathLinkService.SendDeathLink(new DeathLink(APState.ServerData.slot_name));
+                    APState.DeathLinkService.SendDeathLink(new DeathLink(APState.ServerConnectInfo.slot_name));
                 }
             }
             APState.DeathLinkKilling = false;
@@ -875,7 +875,7 @@ namespace Archipelago
         public static void GameReady(EscapePod __instance)
         {
             DevConsole.SendConsoleCommand("explodeship");
-            APState.ServerData.index = 0; // New game detected
+            APState.ServerConnectInfo.index = 0; // New game detected
         }
     }
 

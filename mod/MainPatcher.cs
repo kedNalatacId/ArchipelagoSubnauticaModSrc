@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Reflection;
+using System.Threading;
 using BepInEx;
 using HarmonyLib;
 using UnityEngine;
@@ -18,7 +19,12 @@ namespace Archipelago
         private void Awake()
         {
             var harmony = new Harmony("Archipelago");
-            APState.Init();
+            ArchipelagoData.Init();
+            // launch tracker thread
+            APState.TrackerProcessing = new Thread(TrackerThread.DoWork);
+            APState.TrackerProcessing.IsBackground = true;
+            APState.TrackerProcessing.Start();
+            
             SubnauticaEscapePod = Type.GetType("EscapePod, Assembly-CSharp");
             if (SubnauticaEscapePod is null)
             {
