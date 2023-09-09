@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using UnityEngine;
 
@@ -41,9 +42,7 @@ namespace Archipelago
                 }
             }
             // Depth
-            Vector3 position = ArchipelagoData.Locations[locID].Position;
-            return LogicVehicleDepth + LogicSwimDepth > position.y;
-
+            return -(LogicVehicleDepth + LogicSwimDepth) < ArchipelagoData.Locations[locID].Position.y;
         }
 
         public static void PrimeDepthSystem()
@@ -215,6 +214,16 @@ namespace Archipelago
             LogicVehicleDepth = maxDepth;
         }
         
+        // Debug.Log doesn't want to work for me in the thread, despite documentation saying it is threadsafe.
+        // So this is the solution for now, and probably ever.
+        public static void Log(string text)
+        {
+            using (StreamWriter sw = File.AppendText("TrackerThread.txt"))
+            {
+                sw.WriteLine(text);
+            }
+        }
+        
         public static void DoWork()
         {
             float closestDist;
@@ -244,7 +253,6 @@ namespace Archipelago
                 }
                 
                 UpdateVehicleDepth();
-                
                 // locations
                 long trackingCount = 0;
                 if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
