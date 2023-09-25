@@ -201,10 +201,8 @@ namespace Archipelago
                 return false;
             }
             
-            string hostName = ServerConnectInfo.host_name;
-            
             // Start the archipelago session.
-            Session = ArchipelagoSessionFactory.CreateSession(hostName);
+            Session = ArchipelagoSessionFactory.CreateSession(ServerConnectInfo.host_name);
             Session.MessageLog.OnMessageReceived += Session_MessageReceived;
             Session.Socket.ErrorReceived += Session_ErrorReceived;
             Session.Socket.SocketClosed += Session_SocketClosed;
@@ -217,7 +215,7 @@ namespace Archipelago
                 new Version(AP_VERSION[0], AP_VERSION[1], AP_VERSION[2]),
                 null, 
                 "",
-                ServerConnectInfo.password == "" ? null : ServerConnectInfo.password);
+                ServerConnectInfo.password);
 
             if (loginResult is LoginSuccessful loginSuccess)
             {

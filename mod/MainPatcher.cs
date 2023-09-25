@@ -11,7 +11,7 @@ namespace Archipelago
     [BepInPlugin("Archipelago", "Archipelago", Version)]
     public class ArchipelagoPlugin : BaseUnityPlugin
     {
-        public const string Version = "1.7.0";
+        public const string Version = "1.7.1";
         public static bool Zero;
         // Early Reflection to not fish for things later:
         public static Type SubnauticaEscapePod;
