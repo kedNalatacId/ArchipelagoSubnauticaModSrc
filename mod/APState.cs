@@ -23,6 +23,8 @@ namespace Archipelago
         {
             public long ID;
             public Vector3 Position;
+            public float distance_to_origin;
+            public float distance_from_radiation;
         }
 
         public enum State
@@ -37,7 +39,7 @@ namespace Archipelago
             { "drive", "AuroraRadiationFixed" },
             { "infected", "Infection_Progress4" },
         };
-        
+
         public static int[] AP_VERSION = new int[] { 0, 4, 1 };
         public static APConnectInfo ServerConnectInfo = new APConnectInfo();
         public static DeathLinkService DeathLinkService = null;
@@ -50,7 +52,12 @@ namespace Archipelago
         public static bool Authenticated;
         public static string Goal = "launch";
         public static string GoalEvent = "";
-        public static string SwimRule = "";
+        public static int SwimRule = 200;
+        public static bool ConsiderItems = false;
+        public static bool ConsiderExtGrowbed = false;
+        public static int SeaglideDepth = 200;
+        public static int SeaglideDistance = 800;
+        public static bool IgnoreRadiation = false;
         public static bool FreeSamples;
         public static bool Silent = false;
         public static Thread TrackerProcessing;
@@ -64,7 +71,7 @@ namespace Archipelago
 
         public static ArchipelagoSession Session;
         public static ArchipelagoUI ArchipelagoUI = null;
-        
+
         public static HashSet<TechType> tech_fragments = new HashSet<TechType>
         {
             // scannable
@@ -151,7 +158,7 @@ namespace Archipelago
             TechType.LabTrashcan,
             TechType.BaseFiltrationMachine
         };
-        
+
         public static TrackerMode TrackedMode = TrackerMode.Logical;
         public static HashSet<TechType> TechFragmentsToDestroy = new HashSet<TechType>();
 
@@ -200,7 +207,7 @@ namespace Archipelago
             {
                 return false;
             }
-            
+
             // Start the archipelago session.
             Session = ArchipelagoSessionFactory.CreateSession(ServerConnectInfo.host_name);
             Session.MessageLog.OnMessageReceived += Session_MessageReceived;
@@ -216,9 +223,12 @@ namespace Archipelago
                 null, 
                 "",
                 ServerConnectInfo.password);
+// WIP
+Debug.Log("WIP -- 1");
 
             if (loginResult is LoginSuccessful loginSuccess)
             {
+Debug.Log("WIP -- 2");
                 var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
                 var rawPath = storage?.GetType().GetField("savePath",
                         BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(storage);
@@ -230,17 +240,76 @@ namespace Archipelago
                 {
                     Debug.LogError("Could not write most recent connect info to file.");
                 }
-                
+Debug.Log("WIP -- 2.5");
+Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(loginSuccess.SlotData));
+
                 Authenticated = true;
                 state = State.InGame;
                 if (loginSuccess.SlotData.TryGetValue("swim_rule", out var swim_rule))
                 {
-                    SwimRule = (string)swim_rule;
+                    SwimRule = Convert.ToInt32(swim_rule);
+                    if (SwimRule < 100)
+                    {
+                        SwimRule = 100;
+                    }
+                    if (SwimRule > 600)
+                    {
+                        SwimRule = 600;
+                    }
+Debug.Log("WIP 2.5 -- SwimRule set to " + SwimRule);
                 }
+Debug.Log("WIP -- 3");
+                if (loginSuccess.SlotData.TryGetValue("consider_items", out var consider_items))
+                {
+                    ConsiderItems = Convert.ToInt32(consider_items) > 0;
+Debug.Log("WIP 3 -- Consider Items set to " + ConsiderItems);
+                }
+Debug.Log("WIP -- 4");
+                if (loginSuccess.SlotData.TryGetValue("consider_exterior_growbed", out var consider_growbed))
+                {
+                    ConsiderExtGrowbed = Convert.ToInt32(consider_growbed) > 0;
+Debug.Log("WIP 4 -- Consider Exterior Growbed set to " + ConsiderExtGrowbed);
+                }
+Debug.Log("WIP -- 4.5");
+                if (loginSuccess.SlotData.TryGetValue("seaglide_distance", out var seaglide_distance))
+                {
+                    SeaglideDistance = Convert.ToInt32(seaglide_distance);
+                    if (SeaglideDistance < 600)
+                    {
+                        SeaglideDistance = 600;
+                    }
+                    if (SeaglideDistance > 2500)
+                    {
+                        SeaglideDistance = 2500;
+                    }
+Debug.Log("WIP 4.5 -- Seaglide Distance set to " + SeaglideDistance);
+                }
+Debug.Log("WIP -- 5");
+                if (loginSuccess.SlotData.TryGetValue("seaglide_depth", out var seaglide_depth))
+                {
+                    SeaglideDepth = Convert.ToInt32(seaglide_depth);
+                    if (SeaglideDepth < 100)
+                    {
+                        SeaglideDepth = 100;
+                    }
+                    if (SeaglideDepth > 400)
+                    {
+                        SeaglideDepth = 400;
+                    }
+Debug.Log("WIP 5 -- Seaglide Depth set to " + SeaglideDepth);
+                }
+Debug.Log("WIP -- 6");
                 if (loginSuccess.SlotData.TryGetValue("free_samples", out var free_samples))
                 {
                     FreeSamples = Convert.ToInt32(free_samples) > 0;
                 }
+Debug.Log("WIP -- 6.5");
+                if (loginSuccess.SlotData.TryGetValue("ignore_radiation", out var ignore_radiation))
+                {
+                    IgnoreRadiation = Convert.ToInt32(ignore_radiation) > 0;
+Debug.Log("WIP 6.5 -- Ignore Radiation set to " + IgnoreRadiation);
+                }
+Debug.Log("WIP -- 7");
                 Goal = (string)loginSuccess.SlotData["goal"];
                 GoalMapping.TryGetValue(Goal, out GoalEvent);
                 if (loginSuccess.SlotData["vanilla_tech"] is JArray temp)
@@ -250,12 +319,12 @@ namespace Archipelago
                         vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
                     }
                 }
-                    
-                
+Debug.Log("WIP -- 8");
+// END WIP
+
                 Debug.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData));
                 ServerConnectInfo.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;
                 set_deathlink();
-
             }
             else if (loginResult is LoginFailure loginFailure)
             {
@@ -268,11 +337,11 @@ namespace Archipelago
             TechFragmentsToDestroy = new HashSet<TechType>(APState.tech_fragments);
             // remove vanilla so it's scannable
             TechFragmentsToDestroy.ExceptWith(vanillaTech);
-            Debug.LogError("Preventing scanning of: " + string.Join(", ", TechFragmentsToDestroy));
-            Debug.LogError("Allowing scanning of: " + string.Join(", ", vanillaTech));
+            Debug.Log("Preventing scanning of: " + string.Join(", ", TechFragmentsToDestroy));
+            Debug.Log("Allowing scanning of: " + string.Join(", ", vanillaTech));
             return loginResult.Successful;
         }
-        
+
         static void Session_SocketClosed(string reason)
         {
             message_queue.Add("Connection to Archipelago lost: " + reason);
@@ -336,7 +405,7 @@ namespace Archipelago
 #if DEBUG
             ErrorMessage.AddError("Tried to check unregistered Location at: " + position);
             Debug.LogError("Tried to check unregistered Location at: " + position);
-            foreach (var location in LOCATIONS)
+/*          foreach (var location in LOCATIONS)
             {
                 var dist = Vector3.Distance(location.Value.Position, position);
                 if (dist < closestDist)
@@ -344,7 +413,7 @@ namespace Archipelago
                     closestDist = dist;
                     closest_id = location.Key;
                 }
-            }
+            } */
             ErrorMessage.AddError("Could it be Location ID " + closest_id + " with a distance of "+closestDist + "?");
             Debug.LogError("Could it be Location ID " + closest_id + " with a distance of "+closestDist + "?");
 #endif
@@ -374,7 +443,7 @@ namespace Archipelago
                 }
             }
         }
-        
+
         public static void Unlock(long apItemID, long index)
         {
             if (ArchipelagoData.GroupItems.TryGetValue(apItemID, out var groupUnlock))
@@ -385,7 +454,7 @@ namespace Archipelago
                 }
                 return;
             }
-            
+
             ArchipelagoData.ItemCodeToTechType.TryGetValue(apItemID, out var techType);
             if (ArchipelagoData.ItemCodeToItemType[apItemID] == ArchipelagoItemType.Resource)
             {
@@ -415,7 +484,7 @@ namespace Archipelago
                 // Unknown item ID or already known technology.
                 return;
             }
-            
+
             if (PDAScanner.IsFragment(techType))
             {
                 PDAScanner.EntryData entryData = PDAScanner.GetEntryData(techType);
@@ -499,7 +568,7 @@ namespace Archipelago
         {
             TaskResult<GameObject> prefabResult = new TaskResult<GameObject>();
             yield return CraftData.InstantiateFromPrefabAsync(techType, prefabResult, false);
-                
+
             GameObject gameObject = prefabResult.Get();
             if (gameObject == null)
             {
@@ -511,7 +580,7 @@ namespace Archipelago
                                             MainCamera.camera.transform.forward * 3f;
             // This seems to fill batteries to default values when crafted.
             CrafterLogic.NotifyCraftEnd(gameObject, techType);
-            
+
             Pickupable pickupable = gameObject.GetComponent<Pickupable>();
             if (pickupable == null)
             {
@@ -523,7 +592,7 @@ namespace Archipelago
                 Inventory.main.ForcePickup(pickupable);
             }
         }
-        
+
         private static IEnumerator GiveItemAsync(TechType techType, bool giveLinked = false, bool filterCategory = true)
         {
             if (CraftData.GetBuilderIndex(techType, out TechGroup group, out TechCategory category, out int index))
@@ -547,7 +616,7 @@ namespace Archipelago
                 }
 
                 yield return PickUp(techType);
-                
+
                 if (!giveLinked)
                 {
                     yield break;
@@ -568,7 +637,7 @@ namespace Archipelago
         {
             Inventory.main.StartCoroutine(GiveItemAsync(techType, giveLinked: true));
         }
-        
+
         public static void set_deathlink()
         {
             if (DeathLinkService == null)
@@ -576,7 +645,7 @@ namespace Archipelago
                 DeathLinkService = Session.CreateDeathLinkService();
                 DeathLinkService.OnDeathLinkReceived += DeathLinkReceived;
             }
-            
+
             if (ServerConnectInfo.death_link)
             {
                 DeathLinkService.EnableDeathLink();
@@ -586,7 +655,7 @@ namespace Archipelago
                 DeathLinkService.DisableDeathLink();
             }
         }
-        
+
         public static void send_completion()
         {
             var statusUpdatePacket = new StatusUpdatePacket();

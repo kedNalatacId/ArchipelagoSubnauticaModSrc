@@ -75,6 +75,37 @@ public static class ArchipelagoData
                 vec["y"],
                 vec["z"]
             );
+
+            // json file might not be updated with new values; fake it if not
+            if (vec.TryGetValue("distance_to_origin", out var orig_dist))
+            {
+                location.distance_to_origin = (float)orig_dist;
+            }
+            else
+            {
+                /*
+                    # Value not in json, pre-calculate by hand, based on python:
+                    map_center_dist = math.sqrt(pos_x ** 2 + pos_z ** 2)
+                */
+                location.distance_to_origin = (float)Math.Sqrt(Math.Pow(vec["x"], 2) + Math.Pow(vec["z"], 2));
+            }
+
+            if (vec.TryGetValue("distance_from_radiation", out var rad_dist))
+            {
+                location.distance_from_radiation = (float)rad_dist;
+            }
+            else
+            {
+                /*
+                    # Value not in json, pre-calculate by hand, based on python:
+                    aurora_dist = math.sqrt((x - 1038.0) ** 2 + y ** 2 + (z - -163.1) ** 2)
+                    return aurora_dist < 950
+                */
+                location.distance_from_radiation = (float)Math.Sqrt(
+                    Math.Pow(vec["x"] - 1038, 2) + Math.Pow(vec["y"], 2) + Math.Pow(vec["z"] + 163.1, 2)
+                );
+            }
+
             Locations.Add(location.ID, location);
         }
 
@@ -95,7 +126,7 @@ public static class ArchipelagoData
             }
         }
 
-        Debug.LogError("ItemCodeToItemType " + JsonConvert.SerializeObject(ItemCodeToItemType));
+        Debug.Log("ItemCodeToItemType " + JsonConvert.SerializeObject(ItemCodeToItemType));
         Initialized = true;
     }
 }
