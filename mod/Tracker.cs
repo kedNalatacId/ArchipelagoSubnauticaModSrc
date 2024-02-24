@@ -77,6 +77,7 @@ namespace Archipelago
         public static void PrimeDepthSystem()
         {
             BaseDepth           = APState.SwimRule;
+            LogicSwimDepth      = APState.SwimRule;
             SeaglideDepth       = APState.SeaglideDepth;
             ItemsRelevant       = APState.ConsiderItems;
             ExtGrowbedRelevant  = APState.ConsiderExtGrowbed;
