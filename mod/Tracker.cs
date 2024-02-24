@@ -66,11 +66,6 @@ namespace Archipelago
             }
 
             // Depth
-            // Anything above water is in logic (as long as we can "reach it", see distance above)
-            if (ArchipelagoData.Locations[locID].Position.y >= 0)
-            {
-                return true;
-            }
             return -(LogicVehicleDepth + LogicItemDepth + LogicSwimDepth) < ArchipelagoData.Locations[locID].Position.y;
         }
 
