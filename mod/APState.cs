@@ -224,12 +224,9 @@ namespace Archipelago
                 null, 
                 "",
                 ServerConnectInfo.password);
-// WIP
-Debug.Log("WIP -- 1");
 
             if (loginResult is LoginSuccessful loginSuccess)
             {
-Debug.Log("WIP -- 2");
                 var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
                 var rawPath = storage?.GetType().GetField("savePath",
                         BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(storage);
@@ -241,8 +238,6 @@ Debug.Log("WIP -- 2");
                 {
                     Debug.LogError("Could not write most recent connect info to file.");
                 }
-Debug.Log("WIP -- 2.5");
-Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(loginSuccess.SlotData));
 
                 Authenticated = true;
                 state = State.InGame;
@@ -257,21 +252,15 @@ Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(loginSuccess.SlotData));
                     {
                         SwimRule = 600;
                     }
-Debug.Log("WIP 2.5 -- SwimRule set to " + SwimRule);
                 }
-Debug.Log("WIP -- 3");
                 if (loginSuccess.SlotData.TryGetValue("consider_items", out var consider_items))
                 {
                     ConsiderItems = Convert.ToInt32(consider_items) > 0;
-Debug.Log("WIP 3 -- Consider Items set to " + ConsiderItems);
                 }
-Debug.Log("WIP -- 4");
                 if (loginSuccess.SlotData.TryGetValue("consider_exterior_growbed", out var consider_growbed))
                 {
                     ConsiderExtGrowbed = Convert.ToInt32(consider_growbed) > 0;
-Debug.Log("WIP 4 -- Consider Exterior Growbed set to " + ConsiderExtGrowbed);
                 }
-Debug.Log("WIP -- 4.5");
                 if (loginSuccess.SlotData.TryGetValue("seaglide_distance", out var seaglide_distance))
                 {
                     SeaglideDistance = Convert.ToInt32(seaglide_distance);
@@ -283,9 +272,7 @@ Debug.Log("WIP -- 4.5");
                     {
                         SeaglideDistance = 2500;
                     }
-Debug.Log("WIP 4.5 -- Seaglide Distance set to " + SeaglideDistance);
                 }
-Debug.Log("WIP -- 5");
                 if (loginSuccess.SlotData.TryGetValue("seaglide_depth", out var seaglide_depth))
                 {
                     SeaglideDepth = Convert.ToInt32(seaglide_depth);
@@ -297,20 +284,15 @@ Debug.Log("WIP -- 5");
                     {
                         SeaglideDepth = 400;
                     }
-Debug.Log("WIP 5 -- Seaglide Depth set to " + SeaglideDepth);
                 }
-Debug.Log("WIP -- 6");
                 if (loginSuccess.SlotData.TryGetValue("free_samples", out var free_samples))
                 {
                     FreeSamples = Convert.ToInt32(free_samples) > 0;
                 }
-Debug.Log("WIP -- 6.5");
                 if (loginSuccess.SlotData.TryGetValue("ignore_radiation", out var ignore_radiation))
                 {
                     IgnoreRadiation = Convert.ToInt32(ignore_radiation) > 0;
-Debug.Log("WIP 6.5 -- Ignore Radiation set to " + IgnoreRadiation);
                 }
-Debug.Log("WIP -- 7");
                 Goal = (string)loginSuccess.SlotData["goal"];
                 GoalMapping.TryGetValue(Goal, out GoalEvent);
                 if (loginSuccess.SlotData["vanilla_tech"] is JArray temp)
@@ -320,8 +302,6 @@ Debug.Log("WIP -- 7");
                         vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
                     }
                 }
-Debug.Log("WIP -- 8");
-// END WIP
 
                 Debug.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData));
                 ServerConnectInfo.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;
