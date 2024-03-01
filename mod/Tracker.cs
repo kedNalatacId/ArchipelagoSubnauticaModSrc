@@ -15,7 +15,6 @@ namespace Archipelago
 
     public class TrackerThread
     {
-        public static bool DepthPrimed        = false;
         public static bool ItemsRelevant      = false;
         public static bool ExtGrowbedRelevant = false;
         public static int BaseDepth           = 200;
@@ -78,10 +77,9 @@ namespace Archipelago
             ExtGrowbedRelevant  = APState.ConsiderExtGrowbed;
             nonSeaglideDistance = APState.SeaglideDistance;
             IgnoreRadiation     = APState.IgnoreRadiation;
-            DepthPrimed         = true;
         }
 
-        public static void UpdateRadiationSuit()
+        public static bool UpdateRadiationSuit()
         {
             bool hasRadSuit = false;
             try
@@ -90,10 +88,10 @@ namespace Archipelago
             }
             catch (NullReferenceException)
             {
-                return;
+                return false;
             }
 
-            HasRadiationSuit = hasRadSuit;
+            return hasRadSuit;
         }
 
         public static int UpdateLogicDepth()
@@ -270,12 +268,12 @@ namespace Archipelago
 
             while (true)
             {
-                if (! DepthPrimed)
+                if (APState.SwimRule != BaseDepth)
                 {
                     PrimeDepthSystem();
                 }
 
-                UpdateRadiationSuit();
+                HasRadiationSuit = UpdateRadiationSuit();
                 LogicItemDepth = UpdateLogicDepth();
                 UpdateVehicleDepth();
                 // locations
