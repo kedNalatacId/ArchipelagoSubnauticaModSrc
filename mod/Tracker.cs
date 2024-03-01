@@ -246,6 +246,105 @@ namespace Archipelago
             LogicVehicleDepth = maxDepth;
         }
 
+        public static void UpdateTrackedLocation()
+        {
+            float closestDist;
+            float dist;
+            long closestID;
+            long trackingCount = 0;
+            long scanCutOff = 33999;
+
+            if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
+            {
+                Vector3 playerPos = Player.main.gameObject.transform.position;
+
+                closestDist = 100000.0f;
+                closestID = -1;
+                foreach (var locID in APState.Session.Locations.AllMissingLocations)
+                {
+                    // Check that it's a static location
+                    if (locID < scanCutOff)
+                    {
+                        trackingCount++;
+                        // Skip locations not in logic
+                        if (APState.TrackedMode == TrackerMode.Logical && !InLogic(locID))
+                        {
+                            continue;
+                        }
+                        dist = Vector3.Distance(playerPos, ArchipelagoData.Locations[locID].Position);
+                        if (dist < closestDist)
+                        {
+                            closestDist = dist;
+                            closestID = locID;
+                        }
+                    }
+                }
+
+                APState.TrackedLocationsCount = trackingCount;
+                APState.TrackedDistance = closestDist;
+                APState.TrackedLocation = closestID;
+                APState.TrackedDepth = Convert.ToInt32(Math.Round(ArchipelagoData.Locations[closestID].Position.y));
+                if (closestID != -1)
+                {
+                    APState.TrackedLocationName =
+                        APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation);
+                    Vector3 directionVector = ArchipelagoData.Locations[closestID].Position -
+                                              Player.main.gameObject.transform.position;
+                    directionVector.Normalize();
+                    APState.TrackedAngle = Vector3.Angle(directionVector,
+                        Player.main.viewModelCamera.transform.forward);
+                }
+            }
+            else
+            {
+                APState.TrackedLocationsCount = 0;
+                APState.TrackedLocation = -1;
+            }
+        }
+
+        public static void UpdateTrackedFish()
+        {
+            long scanCutOff = 33999;
+            long maxFish = 7;
+
+            if (APState.Session != null)
+            {
+                var remainingFish = new List<long>();
+
+                foreach (var locID in APState.Session.Locations.AllMissingLocations)
+                {
+                    // Check that it's a static location
+                    if (locID > scanCutOff)
+                    {
+                        remainingFish.Add(locID);
+                    }
+                }
+
+                APState.TrackedFishCount = remainingFish.Count;
+                if (APState.TrackedFishCount != 0)
+                {
+                    remainingFish.Sort();
+                    var display_fish = new List<string>();
+                    for (int i = 0; i < Math.Min(APState.TrackedFishCount, maxFish); i++)
+                    {
+                        display_fish.Add(
+                            APState.Session.Locations.GetLocationNameFromId(
+                                remainingFish[i]).Replace(
+                                " Scan", ""));
+                    }
+                    APState.TrackedFish = String.Join(", ", display_fish);
+                }
+                else
+                {
+                    APState.TrackedFish = "";
+                }
+            }
+            else
+            {
+                APState.TrackedFishCount = 0;
+            }
+        }
+
         // Debug.Log doesn't want to work for me in the thread, despite documentation saying it is threadsafe.
         // So this is the solution for now, and probably ever.
         public static void Log(string text)
@@ -258,14 +357,6 @@ namespace Archipelago
 
         public static void DoWork()
         {
-            float closestDist;
-            float dist;
-            long closestID;
-            long scanCutOff = 33999;
-            long maxFish = 7;
-
-            Vector3 playerPos;
-
             while (true)
             {
                 if (APState.SwimRule != BaseDepth)
@@ -276,91 +367,8 @@ namespace Archipelago
                 HasRadiationSuit = UpdateRadiationSuit();
                 LogicItemDepth = UpdateLogicDepth();
                 UpdateVehicleDepth();
-                // locations
-                long trackingCount = 0;
-                if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
-                {
-                    playerPos = Player.main.gameObject.transform.position;
-
-                    closestDist = 100000.0f;
-                    closestID = -1;
-                    foreach (var locID in APState.Session.Locations.AllMissingLocations)
-                    {
-                        // Check that it's a static location
-                        if (locID < scanCutOff)
-                        {
-                            trackingCount++;
-                            // Skip locations not in logic
-                            if (APState.TrackedMode == TrackerMode.Logical && !InLogic(locID))
-                            {
-                                continue;
-                            }
-                            dist = Vector3.Distance(playerPos, ArchipelagoData.Locations[locID].Position);
-                            if (dist < closestDist)
-                            {
-                                closestDist = dist;
-                                closestID = locID;
-                            }
-                        }
-                    }
-
-                    APState.TrackedLocationsCount = trackingCount;
-                    APState.TrackedDistance = closestDist;
-                    APState.TrackedLocation = closestID;
-                    if (closestID != -1)
-                    {
-                        APState.TrackedLocationName =
-                            APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation);
-                        Vector3 directionVector = ArchipelagoData.Locations[closestID].Position -
-                                                  Player.main.gameObject.transform.position;
-                        directionVector.Normalize();
-                        APState.TrackedAngle = Vector3.Angle(directionVector,
-                            Player.main.viewModelCamera.transform.forward);
-                    }
-                }
-                else
-                {
-                    APState.TrackedLocationsCount = 0;
-                    APState.TrackedLocation = -1;
-                }
-                // fish
-                if (APState.Session != null)
-                {
-
-                    var remainingFish = new List<long>();
-
-                    foreach (var locID in APState.Session.Locations.AllMissingLocations)
-                    {
-                        // Check that it's a static location
-                        if (locID > scanCutOff)
-                        {
-                            remainingFish.Add(locID);
-                        }
-                    }
-
-                    APState.TrackedFishCount = remainingFish.Count;
-                    if (APState.TrackedFishCount != 0)
-                    {
-                        remainingFish.Sort();
-                        var display_fish = new List<string>();
-                        for (int i = 0; i < Math.Min(APState.TrackedFishCount, maxFish); i++)
-                        {
-                            display_fish.Add(
-                                APState.Session.Locations.GetLocationNameFromId(
-                                    remainingFish[i]).Replace(
-                                    " Scan", ""));
-                        }
-                        APState.TrackedFish = String.Join(", ", display_fish);
-                    }
-                    else
-                    {
-                        APState.TrackedFish = "";
-                    }
-                }
-                else
-                {
-                    APState.TrackedFishCount = 0;
-                }
+                UpdateTrackedLocation();
+                UpdateTrackedFish();
 
                 Thread.Sleep(150);
             }

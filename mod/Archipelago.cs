@@ -118,7 +118,7 @@ namespace Archipelago
             else if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
             {
 
-                if (APState.TrackedLocation != -1 && APState.TrackedMode != TrackerMode.Disabled)
+                if (APState.TrackedMode != TrackerMode.Disabled)
                 {
                     string text = "Locations left: " + APState.TrackedLocationsCount;
                     if (APState.TrackedLocation != -1)
@@ -126,6 +126,7 @@ namespace Archipelago
                         text += ". Closest is " + (long)APState.TrackedDistance + " m ("
                                 + (int)APState.TrackedAngle + "°) away";
                         text += ", named " + APState.TrackedLocationName;
+                        text += " (" + APState.TrackedDepth + "m)";
                     }
 
                     GUI.Label(new Rect(16, 36, 1000, 20), text);
