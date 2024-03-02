@@ -283,16 +283,13 @@ namespace Archipelago
                 APState.TrackedLocationsCount = trackingCount;
                 APState.TrackedDistance = closestDist;
                 APState.TrackedLocation = closestID;
-                APState.TrackedDepth = Convert.ToInt32(Math.Round(ArchipelagoData.Locations[closestID].Position.y));
                 if (closestID != -1)
                 {
-                    APState.TrackedLocationName =
-                        APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation);
-                    Vector3 directionVector = ArchipelagoData.Locations[closestID].Position -
-                                              Player.main.gameObject.transform.position;
+                    APState.TrackedDepth = Convert.ToInt32(ArchipelagoData.Locations[closestID].Position.y);
+                    APState.TrackedLocationName = APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation);
+                    Vector3 directionVector = ArchipelagoData.Locations[closestID].Position - Player.main.gameObject.transform.position;
                     directionVector.Normalize();
-                    APState.TrackedAngle = Vector3.Angle(directionVector,
-                        Player.main.viewModelCamera.transform.forward);
+                    APState.TrackedAngle = Vector3.Angle(directionVector, Player.main.viewModelCamera.transform.forward);
                 }
             }
             else
@@ -345,8 +342,11 @@ namespace Archipelago
             }
         }
 
-        // Debug.Log doesn't want to work for me in the thread, despite documentation saying it is threadsafe.
+        // Debug.Log doesn't want to work in the thread, despite documentation saying it is threadsafe.
         // So this is the solution for now, and probably ever.
+        // 
+        // Example of logging for future use
+        // Log(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " -- Doing Thing");
         public static void Log(string text)
         {
             using (StreamWriter sw = File.AppendText("TrackerThread.txt"))
