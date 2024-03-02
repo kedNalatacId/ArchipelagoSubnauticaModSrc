@@ -20,3 +20,10 @@ Noted differences:
     - Anything outside this range is considered out of logic until the seaglide is crafted
     - Shortening the range puts the seaglide very early  in single-player mode
 - "Ignore Radiation" means logic doesn't care about the radiation suit (opens aurora as sphere one)
+- Number of checks is always printed (even if none are available)
+- Depth of closest check is also printed.
+
+Hopefully coming soon:
+- not showing fish not in logic
+- showing depth of current "closest" fish
+- flora?
