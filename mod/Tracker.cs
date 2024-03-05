@@ -26,24 +26,16 @@ namespace Archipelago
         public static bool HasSeaglide        = false;
         public static bool HasRadiationSuit   = false;
         public static bool IgnoreRadiation    = false;
+        public static bool ElidePrawn         = false;
         public static string LogicVehicle     = "Vehicle";
+        public static long scanCutOff         = 33999;
 
         public static bool InLogic(long locID)
         {
             // Gating items
             foreach (var logic in ArchipelagoData.LogicDict)
             {
-                bool hasItem;
-                try
-                {
-                    hasItem = KnownTech.Contains(logic.Key);
-                }
-                catch (NullReferenceException)
-                {
-                    hasItem = false;
-                }
-
-                if (!hasItem && logic.Value.Contains(locID))
+                if (!KnownTech.Contains(logic.Key) && logic.Value.Contains(locID))
                 {
                     return false;
                 }
@@ -77,21 +69,12 @@ namespace Archipelago
             ExtGrowbedRelevant  = APState.ConsiderExtGrowbed;
             nonSeaglideDistance = APState.SeaglideDistance;
             IgnoreRadiation     = APState.IgnoreRadiation;
+            ElidePrawn          = APState.ElidePrawn;
         }
 
         public static bool UpdateRadiationSuit()
         {
-            bool hasRadSuit = false;
-            try
-            {
-                hasRadSuit = KnownTech.Contains(TechType.RadiationSuit);
-            }
-            catch (NullReferenceException)
-            {
-                return false;
-            }
-
-            return hasRadSuit;
+            return KnownTech.Contains(TechType.RadiationSuit);
         }
 
         public static int UpdateLogicDepth()
@@ -102,25 +85,12 @@ namespace Archipelago
                 return itemdepth;
             }
 
-            try
+            if (ExtGrowbedRelevant && KnownTech.Contains(TechType.FarmingTray))
             {
-                bool hasExteriorGrowbed = KnownTech.Contains(TechType.FarmingTray);
-                if (hasExteriorGrowbed && ExtGrowbedRelevant)
-                {
-                    itemdepth += 500;
-                }
+                itemdepth += 500;
             }
-            catch (NullReferenceException) { }
 
-            bool hasModStation = false;
-            try
-            {
-                hasModStation = KnownTech.Contains(TechType.Workbench);
-            }
-            catch (NullReferenceException)
-            {
-                return itemdepth;
-            }
+            bool hasModStation = KnownTech.Contains(TechType.Workbench);
 
             if (KnownTech.Contains(TechType.Seaglide))
             {
@@ -156,22 +126,80 @@ namespace Archipelago
             return itemdepth;
         }
 
+        public static int getSeamothDepth(bool has_mod, bool has_upg)
+        {
+            if (! KnownTech.Contains(TechType.Seamoth))
+            {
+                return 0;
+            }
+
+            int depth = 200;
+            if (has_upg && KnownTech.Contains(TechType.VehicleHullModule1))
+            {
+                depth = 300;
+                if (has_mod && KnownTech.Contains(TechType.VehicleHullModule2))
+                {
+                    depth = 500;
+                    if (KnownTech.Contains(TechType.VehicleHullModule3))
+                    {
+                        depth = 900;
+                    }
+                }
+            }
+
+            return depth;
+        }
+
+        public static int getPrawnDepth(bool has_mod, bool has_upg)
+        {
+            if (ElidePrawn || ! KnownTech.Contains(TechType.Exosuit))
+            {
+                return 0;
+            }
+
+            int depth = 900;
+            if (has_upg && KnownTech.Contains(TechType.ExoHullModule1))
+            {
+                depth = 1300;
+                if (has_mod && KnownTech.Contains(TechType.ExoHullModule2))
+                {
+                    depth = 1700;
+                }
+            }
+
+            return depth;
+        }
+
+        public static int getCyclopsDepth(bool has_mod, bool has_upg)
+        {
+            if (! KnownTech.Contains(TechType.Cyclops))
+            {
+                return 0;
+            }
+
+            int depth = 500;
+            if (KnownTech.Contains(TechType.CyclopsHullModule1))
+            {
+                depth = 900;
+                if (has_mod && KnownTech.Contains(TechType.CyclopsHullModule2))
+                {
+                    depth = 1300;
+                    if (KnownTech.Contains(TechType.CyclopsHullModule3))
+                    {
+                        depth = 1700;
+                    }
+                }
+            }
+
+            return depth;
+        }
+
         public static void UpdateVehicleDepth()
         {
-            bool hasBay;
             int maxDepth = 0;
             string logicVehicleName = "Vehicle";
 
-            try
-            {
-                hasBay = KnownTech.Contains(TechType.Constructor);
-            }
-            catch (Exception)
-            {
-                return;
-            }
-
-            if (!hasBay)
+            if (!KnownTech.Contains(TechType.Constructor))
             {
                 LogicVehicleDepth = 0;
                 LogicVehicle = logicVehicleName;
@@ -181,65 +209,26 @@ namespace Archipelago
             bool hasModStation = KnownTech.Contains(TechType.Workbench);
             bool hasUpgradeConsole = KnownTech.Contains(TechType.BaseUpgradeConsole) &&
                                      KnownTech.Contains(TechType.BaseMoonpool);
-            int oldDepth = maxDepth;
 
-            if (KnownTech.Contains(TechType.Seamoth))
+            int candidateDepth = getSeamothDepth(hasModStation, hasUpgradeConsole);
+            if (candidateDepth > maxDepth)
             {
-                maxDepth = Math.Max(maxDepth, 200);
-                if (hasUpgradeConsole && KnownTech.Contains(TechType.VehicleHullModule1))
-                {
-                    maxDepth = Math.Max(maxDepth, 300);
-                    if (hasModStation && KnownTech.Contains(TechType.VehicleHullModule2))
-                    {
-                        maxDepth = Math.Max(maxDepth, 500);
-                        if (KnownTech.Contains(TechType.VehicleHullModule3))
-                        {
-                            maxDepth = Math.Max(maxDepth, 900);
-                        }
-                    }
-                }
-                if (Math.Abs(oldDepth - maxDepth) > 1)
-                {
-                    logicVehicleName = "Seamoth";
-                }
+                logicVehicleName = "Seamoth";
+                maxDepth = candidateDepth;
             }
-            oldDepth = maxDepth;
-            if (KnownTech.Contains(TechType.Exosuit))
+
+            candidateDepth = getPrawnDepth(hasModStation, hasUpgradeConsole);
+            if (candidateDepth > maxDepth)
             {
-                maxDepth = Math.Max(maxDepth, 900);
-                if (hasUpgradeConsole && KnownTech.Contains(TechType.ExoHullModule1))
-                {
-                    maxDepth = Math.Max(maxDepth, 1300);
-                    if (hasModStation && KnownTech.Contains(TechType.ExoHullModule2))
-                    {
-                        maxDepth = Math.Max(maxDepth, 1700);
-                    }
-                }
-                if (Math.Abs(oldDepth - maxDepth) > 1)
-                {
-                    logicVehicleName = "Prawn Suit";
-                }
+                logicVehicleName = "Prawn";
+                maxDepth = candidateDepth;
             }
-            oldDepth = maxDepth;
-            if (KnownTech.Contains(TechType.Cyclops))
+
+            candidateDepth = getCyclopsDepth(hasModStation, hasUpgradeConsole);
+            if (candidateDepth > maxDepth)
             {
-                maxDepth = Math.Max(maxDepth, 500);
-                if (KnownTech.Contains(TechType.CyclopsHullModule1))
-                {
-                    maxDepth = Math.Max(maxDepth, 900);
-                    if (hasModStation && KnownTech.Contains(TechType.CyclopsHullModule2))
-                    {
-                        maxDepth = Math.Max(maxDepth, 1300);
-                        if (KnownTech.Contains(TechType.CyclopsHullModule3))
-                        {
-                            maxDepth = Math.Max(maxDepth, 1700);
-                        }
-                    }
-                }
-                if (Math.Abs(oldDepth - maxDepth) > 1)
-                {
-                    logicVehicleName = "Cyclops";
-                }
+                logicVehicleName = "Cyclops";
+                maxDepth = candidateDepth;
             }
 
             LogicVehicle = logicVehicleName;
@@ -248,98 +237,74 @@ namespace Archipelago
 
         public static void UpdateTrackedLocation()
         {
-            float closestDist;
-            float dist;
-            long closestID;
+            float closestDist = 100000.0f;
+            long closestID = -1;
             long trackingCount = 0;
-            long scanCutOff = 33999;
+            Vector3 playerPos = Player.main.gameObject.transform.position;
 
-            if (APState.state == APState.State.InGame && APState.Session != null && Player.main != null)
+            foreach (var locID in APState.Session.Locations.AllMissingLocations)
             {
-                Vector3 playerPos = Player.main.gameObject.transform.position;
-
-                closestDist = 100000.0f;
-                closestID = -1;
-                foreach (var locID in APState.Session.Locations.AllMissingLocations)
+                // Check that it's a static location
+                if (locID < scanCutOff)
                 {
-                    // Check that it's a static location
-                    if (locID < scanCutOff)
+                    trackingCount++;
+                    // Skip locations not in logic
+                    if (APState.TrackedMode == TrackerMode.Logical && !InLogic(locID))
                     {
-                        trackingCount++;
-                        // Skip locations not in logic
-                        if (APState.TrackedMode == TrackerMode.Logical && !InLogic(locID))
-                        {
-                            continue;
-                        }
-                        dist = Vector3.Distance(playerPos, ArchipelagoData.Locations[locID].Position);
-                        if (dist < closestDist)
-                        {
-                            closestDist = dist;
-                            closestID = locID;
-                        }
+                        continue;
+                    }
+                    float dist = Vector3.Distance(playerPos, ArchipelagoData.Locations[locID].Position);
+                    if (dist < closestDist)
+                    {
+                        closestDist = dist;
+                        closestID = locID;
                     }
                 }
-
-                APState.TrackedLocationsCount = trackingCount;
-                APState.TrackedDistance = closestDist;
-                APState.TrackedLocation = closestID;
-                if (closestID != -1)
-                {
-                    APState.TrackedDepth = Convert.ToInt32(ArchipelagoData.Locations[closestID].Position.y);
-                    APState.TrackedLocationName = APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation);
-                    Vector3 directionVector = ArchipelagoData.Locations[closestID].Position - Player.main.gameObject.transform.position;
-                    directionVector.Normalize();
-                    APState.TrackedAngle = Vector3.Angle(directionVector, Player.main.viewModelCamera.transform.forward);
-                }
             }
-            else
+
+            APState.TrackedLocationsCount = trackingCount;
+            APState.TrackedDistance = closestDist;
+            APState.TrackedLocation = closestID;
+            if (closestID != -1)
             {
-                APState.TrackedLocationsCount = 0;
-                APState.TrackedLocation = -1;
+                APState.TrackedDepth = Convert.ToInt32(ArchipelagoData.Locations[closestID].Position.y);
+                APState.TrackedLocationName = APState.Session.Locations.GetLocationNameFromId(APState.TrackedLocation);
+                Vector3 directionVector = ArchipelagoData.Locations[closestID].Position - Player.main.gameObject.transform.position;
+                directionVector.Normalize();
+                APState.TrackedAngle = Vector3.Angle(directionVector, Player.main.viewModelCamera.transform.forward);
             }
         }
 
         public static void UpdateTrackedFish()
         {
-            long scanCutOff = 33999;
             long maxFish = 7;
-
-            if (APState.Session != null)
+            var remainingFish = new List<long>();
+            foreach (var locID in APState.Session.Locations.AllMissingLocations)
             {
-                var remainingFish = new List<long>();
-
-                foreach (var locID in APState.Session.Locations.AllMissingLocations)
+                // Check that it's a static location
+                if (locID > scanCutOff)
                 {
-                    // Check that it's a static location
-                    if (locID > scanCutOff)
-                    {
-                        remainingFish.Add(locID);
-                    }
-                }
-
-                APState.TrackedFishCount = remainingFish.Count;
-                if (APState.TrackedFishCount != 0)
-                {
-                    remainingFish.Sort();
-                    var display_fish = new List<string>();
-                    for (int i = 0; i < Math.Min(APState.TrackedFishCount, maxFish); i++)
-                    {
-                        display_fish.Add(
-                            APState.Session.Locations.GetLocationNameFromId(
-                                remainingFish[i]).Replace(
-                                " Scan", ""));
-                    }
-                    APState.TrackedFish = String.Join(", ", display_fish);
-                }
-                else
-                {
-                    APState.TrackedFish = "";
+                    remainingFish.Add(locID);
                 }
             }
-            else
+
+            APState.TrackedFishCount = remainingFish.Count;
+            if (APState.TrackedFishCount == 0)
             {
-                APState.TrackedFishCount = 0;
+                APState.TrackedFish = "";
+                return;
             }
+
+            remainingFish.Sort();
+            var display_fish = new List<string>();
+            for (int i = 0; i < Math.Min(APState.TrackedFishCount, maxFish); i++)
+            {
+                display_fish.Add(
+                    APState.Session.Locations.GetLocationNameFromId(
+                        remainingFish[i]).Replace(
+                        " Scan", ""));
+            }
+            APState.TrackedFish = String.Join(", ", display_fish);
         }
 
         // Debug.Log doesn't want to work in the thread, despite documentation saying it is threadsafe.
@@ -359,6 +324,16 @@ namespace Archipelago
         {
             while (true)
             {
+                Thread.Sleep(150);
+
+                if (APState.state != APState.State.InGame || APState.Session == null || Player.main == null)
+                {
+                    APState.TrackedFishCount = 0;
+                    APState.TrackedLocationsCount = 0;
+                    APState.TrackedLocation = -1;
+                    continue;
+                }
+
                 if (APState.SwimRule != BaseDepth)
                 {
                     PrimeDepthSystem();
@@ -369,8 +344,7 @@ namespace Archipelago
                 UpdateVehicleDepth();
                 UpdateTrackedLocation();
                 UpdateTrackedFish();
-
-                Thread.Sleep(150);
+                // UpdateTrackedPlants();
             }
         }
     }

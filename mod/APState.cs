@@ -58,6 +58,7 @@ namespace Archipelago
         public static int SeaglideDepth = 200;
         public static int SeaglideDistance = 800;
         public static bool IgnoreRadiation = false;
+        public static bool ElidePrawn = false;
         public static bool FreeSamples;
         public static bool Silent = false;
         public static Thread TrackerProcessing;
@@ -292,6 +293,10 @@ namespace Archipelago
                 if (loginSuccess.SlotData.TryGetValue("ignore_radiation", out var ignore_radiation))
                 {
                     IgnoreRadiation = Convert.ToInt32(ignore_radiation) > 0;
+                }
+                if (loginSuccess.SlotData.TryGetValue("ignore_prawn_depth", out var ignore_prawn_depth))
+                {
+                    ElidePrawn = Convert.ToInt32(ignore_prawn_depth) < 1;
                 }
                 Goal = (string)loginSuccess.SlotData["goal"];
                 GoalMapping.TryGetValue(Goal, out GoalEvent);

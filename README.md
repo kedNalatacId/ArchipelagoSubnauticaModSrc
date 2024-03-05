@@ -22,6 +22,7 @@ Noted differences:
 - "Ignore Radiation" means logic doesn't care about the radiation suit (opens aurora as sphere one)
 - Number of checks is always printed (even if none are available)
 - Depth of closest check is also printed.
+- Add support for not using Prawn Depth; python code is done but not checked in (coming soon)
 
 Hopefully coming soon:
 - not showing fish not in logic
