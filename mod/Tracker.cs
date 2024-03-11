@@ -21,6 +21,7 @@ namespace Archipelago
         public static float LogicSwimDepth = BaseDepth;
         public static float LogicVehicleDepth = 0;
         public static string LogicVehicle = "Vehicle";
+        public static bool IncludePrawn = false;
         public static bool InLogic(long locID)
         {
             // Gating items
@@ -76,6 +77,8 @@ namespace Archipelago
                     break;
                 }
             }
+
+            IncludePrawn = APState.IncludePrawn;
         }
 
         public static void UpdateLogicDepth()
@@ -172,7 +175,7 @@ namespace Archipelago
                 }
             }
             oldDepth = maxDepth;
-            if (KnownTech.Contains(TechType.Exosuit))
+            if (IncludePrawn && KnownTech.Contains(TechType.Exosuit))
             {
                 maxDepth = Math.Max(maxDepth, 900f);
                 if (hasUpgradeConsole && KnownTech.Contains(TechType.ExoHullModule1))

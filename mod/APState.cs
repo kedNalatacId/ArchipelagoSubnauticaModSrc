@@ -51,6 +51,7 @@ namespace Archipelago
         public static string Goal = "launch";
         public static string GoalEvent = "";
         public static string SwimRule = "";
+        public static bool IncludePrawn = true;
         public static bool FreeSamples;
         public static bool Silent = false;
         public static Thread TrackerProcessing;
@@ -240,6 +241,10 @@ namespace Archipelago
                 if (loginSuccess.SlotData.TryGetValue("free_samples", out var free_samples))
                 {
                     FreeSamples = Convert.ToInt32(free_samples) > 0;
+                }
+                if (loginSuccess.SlotData.TryGetValue("ignore_prawn_depth", out var ignore_prawn_depth))
+                {
+                    IncludePrawn = Convert.ToInt32(ignore_prawn_depth) < 1;
                 }
                 Goal = (string)loginSuccess.SlotData["goal"];
                 GoalMapping.TryGetValue(Goal, out GoalEvent);
