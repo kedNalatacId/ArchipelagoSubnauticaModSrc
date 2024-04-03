@@ -19,59 +19,12 @@ namespace Archipelago
 {
     public class ArchipelagoUI : MonoBehaviour
     {
-#if DEBUG
-        public static string mouse_target_desc = "";
-        private bool show_warps = false;
-        private bool show_items = false;
-        private float copied_fade = 0.0f;
-
-        public static Dictionary<string, Vector3> WRECKS = new Dictionary<string, Vector3>
-        {
-            { "Blood Kelp Trench 1", new Vector3(-1201, -324, -396) },
-            { "Bulb Zone 1", new Vector3(929, -198, 593) },
-            { "Bulb Zone 2", new Vector3(1309, -215, 570) },
-            { "Dunes 1", new Vector3(-1448, -332, 723) },
-            { "Dunes 2", new Vector3(-1632, -334, 83) },
-            { "Dunes 3", new Vector3(-1210, -217, 7) },
-            { "Grand Reef 1", new Vector3(-290, -222, -773) },
-            { "Grand Reef 2", new Vector3(-865, -430, -1390) },
-            { "Grassy Plateaus 1", new Vector3(-15, -96, -624) },
-            { "Grassy Plateaus 2", new Vector3(-390, -120, 648) },
-            { "Grassy Plateaus 3", new Vector3(286, -72, 444) },
-            { "Grassy Plateaus 4", new Vector3(-635, -50, -2) },
-            { "Grassy Plateaus 5", new Vector3(-432, -90, -268) },
-            { "Kelp Forest 1", new Vector3(-320, -57, 252) },
-            { "Kelp Forest 2", new Vector3(65, -25, 385) },
-            { "Mountains 1", new Vector3(701, -346, 1224) },
-            { "Mountains 2", new Vector3(1057, -254, 1359) },
-            { "Northwestern Mushroom Forest", new Vector3(-645, -120, 773) },
-            { "Safe Shallows 1", new Vector3(-40, -14, -400) },
-            { "Safe Shallows 2", new Vector3(366, -6, -203) },
-            { "Sea Treader's Path", new Vector3(-1131, -166, -729) },
-            { "Sparse Reef", new Vector3(-787, -208, -713) },
-            { "Underwater Islands", new Vector3(-102, -179, 860) }
-        };
-        void Update()
-        {
-/*          if (mouse_target_desc != "")
-            {
-                if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.C))
-                {
-                    Debug.Log("INSPECT GAME OBJECT: " + mouse_target_desc);
-                    string id = mouse_target_desc.Split(new char[] { ':' })[0];
-                    GUIUtility.systemCopyBuffer = id;
-                    copied_fade = 1.0f;
-                }
-            } */
-            copied_fade -= Time.deltaTime;
-        }
-#endif
-
         void OnGUI()
         {
-#if DEBUG
-            GUI.Box(new Rect(0, 0, Screen.width, 120), "");
-#endif
+            if (APState.state == APState.State.Cancelled)
+            {
+                return;
+            }
             string ap_ver = "Archipelago v" + APState.AP_VERSION[0] + "." + APState.AP_VERSION[1] + "." + APState.AP_VERSION[2];
             if (APState.Session != null)
             {
@@ -110,7 +63,12 @@ namespace Archipelago
                     submit = false;
                 }
 
-                if ((GUI.Button(new Rect(16, 96, 100, 20), "Connect") || submit) && APState.ServerConnectInfo.Valid)
+                if (GUI.Button(new Rect(16, 96, 100, 20), "Cancel"))
+                {
+                    APState.state = APState.State.Cancelled;
+                    return;
+                }
+                if ((GUI.Button(new Rect(136, 96, 100, 20), "Connect") || submit) && APState.ServerConnectInfo.Valid)
                 {
                     APState.Connect();
                 }
@@ -164,78 +122,15 @@ namespace Archipelago
                         "Error: Tracker Thread died. Tracker will not update.");
                 }
             }
-
-#if DEBUG
-            GUI.Label(new Rect(16, 16 + 20, Screen.width - 32, 50), ((copied_fade > 0.0f) ? "Copied!" : "Target: ") + mouse_target_desc);
-
-            if (APState.state != APState.State.Menu)
-            {
-                if (GUI.Button(new Rect(16, 16 + 25 + 8 + 25 + 8, 150, 25), "Activate Cheats"))
-                {
-                    DevConsole.SendConsoleCommand("nodamage");
-                    DevConsole.SendConsoleCommand("oxygen");
-                    DevConsole.SendConsoleCommand("item seaglide");
-                    DevConsole.SendConsoleCommand("item battery 10");
-                    DevConsole.SendConsoleCommand("fog");
-                    DevConsole.SendConsoleCommand("speed 3");
-                }
-                if (GUI.Button(new Rect(16 + 150 + 8, 16 + 25 + 8 + 25 + 8, 150, 25), "Warp to Locations"))
-                {
-                    show_warps = !show_warps;
-                    if (show_warps) show_items = false;
-                }
-                if (GUI.Button(new Rect(16 + 150 + 8 + 150 + 8, 16 + 25 + 8 + 25 + 8, 150, 25), "Items"))
-                {
-                    show_items = !show_items;
-                    if (show_items) show_warps = false;
-                }
-
-                if (show_warps)
-                {
-                    int i = 0;
-                    int j = 125;
-                    foreach (var kv in WRECKS)
-                    {
-                        if (GUI.Button(new Rect(16 + i, j, 200, 25), kv.Key.ToString()))
-                        {
-                            string target = ((int)kv.Value.x).ToString() + " " +
-                                            ((int)kv.Value.y).ToString() + " " +
-                                            ((int)kv.Value.z + 50).ToString();
-                            DevConsole.SendConsoleCommand("warp " + target);
-                        }
-                        j += 30;
-                        if (j + 30 >= Screen.height)
-                        {
-                            j = 125;
-                            i += 200 + 16;
-                        }
-                    }
-                }
-
-/*              if (show_items)
-                {
-                    int i = 0;
-                    int j = 125;
-                    foreach (var kv in APState.ITEM_CODE_TO_TECHTYPE)
-                    {
-                        if (GUI.Button(new Rect(16 + i, j, 200, 25), kv.Value.ToString()))
-                        {
-                            APState.unlock(kv.Value);
-                        }
-                        j += 30;
-                        if (j + 30 >= Screen.height)
-                        {
-                            j = 125;
-                            i += 200 + 16;
-                        }
-                    }
-                } */
-            }
-#endif
         }
 
         public bool PlayerNearStart()
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return false;
+            }
+
             if (ArchipelagoPlugin.Zero)
             {
                 return true;
@@ -257,6 +152,10 @@ namespace Archipelago
 
         private void Start()
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
             RegisterCmds();
         }
 
@@ -400,6 +299,10 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void RemoveFragment(ResourceTracker __instance, TechType ___techType)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
 
             if (___techType == TechType.Fragment)
             {
@@ -430,6 +333,11 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void MakeUnscanable()
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
+
             if (PDAScanner.scanTarget.gameObject)
             {
                 var tech_tag = PDAScanner.scanTarget.gameObject.GetComponent<TechTag>();
@@ -452,6 +360,11 @@ namespace Archipelago
         [HarmonyPrefix]
         public static void ReplaceDataboxContent(BlueprintHandTarget __instance)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
+
             // needs to be a unique not taken ID
             __instance.unlockTechType = (TechType)__instance.transform.position.x+100000;
         }
@@ -461,10 +374,14 @@ namespace Archipelago
     [HarmonyPatch("Start")]
     internal class DataboxSpawner_Start_Patch
     {
-
         [HarmonyPrefix]
         public static bool AlwaysSpawn(DataboxSpawner __instance, ref IEnumerator __result)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return true;
+            }
+
             __result = PatchedStart(__instance);
             return false;
         }
@@ -488,6 +405,11 @@ namespace Archipelago
         [HarmonyPrefix]
         public static void OpenDatabox(BlueprintHandTarget __instance)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
+
             if (!__instance.used)
             {
                 APState.CheckLocation(__instance.gameObject.transform.position);
@@ -503,6 +425,11 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool Interact(StoryHandTarget __instance)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return true;
+            }
+
             APState.CheckLocation(__instance.gameObject.transform.position);
 
             var generic_console = __instance.gameObject.GetComponent<GenericConsole>();
@@ -529,6 +456,11 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool PickModule(Pickupable __instance)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return true;
+            }
+
             if (APState.CheckLocation(__instance.gameObject.transform.position))
             {
                 var tech_tag = __instance.gameObject.GetComponent<TechTag>();
@@ -548,21 +480,58 @@ namespace Archipelago
         }
     }
 
-#if DEBUG
-    [HarmonyPatch(typeof(KnownTech))]
-    [HarmonyPatch("Initialize")]
-    internal class PrintCascadeTechs
+
+    /* WIP -- to remove the Cyclops we need to be able to construct the Shield Generator elsewhere.
+        This is one such possibility.
+
+        This (or whatever replaces it) needs to be updated with logic about cyclops not otherwise being available.
+    */
+    [HarmonyPatch(typeof(CraftTree))]
+    [HarmonyPatch("SeamothUpgradesScheme")]
+    internal class MoonpoolFabricator
     {
-        [HarmonyPostfix]
-        public static void PrintCascade(List<KnownTech.AnalysisTech> ___analysisTech)
+        [HarmonyPrefix]
+        public static bool AdditionalShieldGenerator(ref CraftNode __result)
         {
-            foreach (KnownTech.AnalysisTech tech in ___analysisTech)
+            if (APState.state != APState.State.InGame)
             {
-                Debug.LogError(tech.techType + " -> " + JsonConvert.SerializeObject(tech.unlockTechTypes));
+                return true;
             }
+
+            __result = new CraftNode("Root").AddNode(
+                new CraftNode("CommonModules", TreeAction.Expand).AddNode(
+                    new CraftNode("VehicleArmorPlating", TreeAction.Craft, TechType.VehicleArmorPlating),
+                    new CraftNode("VehiclePowerUpgradeModule", TreeAction.Craft, TechType.VehiclePowerUpgradeModule),
+                    new CraftNode("VehicleStorageModule", TreeAction.Craft, TechType.VehicleStorageModule)
+                ),
+                new CraftNode("SeamothModules", TreeAction.Expand).AddNode(
+                    new CraftNode("VehicleHullModule1", TreeAction.Craft, TechType.VehicleHullModule1),
+                    new CraftNode("SeamothSolarCharge", TreeAction.Craft, TechType.SeamothSolarCharge),
+                    new CraftNode("SeamothElectricalDefense", TreeAction.Craft, TechType.SeamothElectricalDefense),
+                    new CraftNode("SeamothTorpedoModule", TreeAction.Craft, TechType.SeamothTorpedoModule),
+                    new CraftNode("SeamothSonarModule", TreeAction.Craft, TechType.SeamothSonarModule)
+                ),
+                new CraftNode("ExosuitModules", TreeAction.Expand).AddNode(
+                    new CraftNode("ExoHullModule1", TreeAction.Craft, TechType.ExoHullModule1),
+                    new CraftNode("ExosuitThermalReactorModule", TreeAction.Craft, TechType.ExosuitThermalReactorModule),
+                    new CraftNode("ExosuitJetUpgradeModule", TreeAction.Craft, TechType.ExosuitJetUpgradeModule),
+                    new CraftNode("ExosuitPropulsionArmModule", TreeAction.Craft, TechType.ExosuitPropulsionArmModule),
+                    new CraftNode("ExosuitGrapplingArmModule", TreeAction.Craft, TechType.ExosuitGrapplingArmModule),
+                    new CraftNode("ExosuitDrillArmModule", TreeAction.Craft, TechType.ExosuitDrillArmModule),
+                    new CraftNode("ExosuitTorpedoArmModule", TreeAction.Craft, TechType.ExosuitTorpedoArmModule)
+                ),
+                new CraftNode("Torpedoes", TreeAction.Expand).AddNode(
+                    new CraftNode("WhirlpoolTorpedo", TreeAction.Craft, TechType.WhirlpoolTorpedo),
+                    new CraftNode("GasTorpedo", TreeAction.Craft, TechType.GasTorpedo)
+                ),
+                new CraftNode("CyclopsModules", TreeAction.Expand).AddNode(
+                    new CraftNode("CyclopsShieldModule", TreeAction.Craft, TechType.CyclopsShieldModule)
+                )
+            );
+
+            return false;
         }
     }
-#endif
 
     [HarmonyPatch(typeof(MainGameController))]
     [HarmonyPatch("LoadInitialInventoryAsync")]
@@ -571,6 +540,11 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void GameReady()
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
+
             // Make sure the commands are registered
             APState.ArchipelagoUI.RegisterCmds();
         }
@@ -583,6 +557,11 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void SaveIntoCurrentSlot(SaveLoadManager.GameInfo info)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
+
             var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(APState.ServerConnectInfo));
             Platform.IO.File.WriteAllBytes(Platform.IO.Path.Combine(SaveLoadManager.GetTemporarySavePath(),
                 "archipelago.json"), bytes);
@@ -788,37 +767,6 @@ namespace Archipelago
         }
     }
 
-#if DEBUG
-    [HarmonyPatch(typeof(GUIHand))]
-    [HarmonyPatch("OnUpdate")]
-    internal class GUIHand_OnUpdate_Patch
-    {
-        [HarmonyPostfix]
-        public static void OnUpdate(GUIHand __instance)
-        {
-            var active_target = __instance.GetActiveTarget();
-            if (active_target)
-                ArchipelagoUI.mouse_target_desc = APState.InspectGameObject(active_target.gameObject);
-            else if (PDAScanner.scanTarget.gameObject)
-                ArchipelagoUI.mouse_target_desc = APState.InspectGameObject(PDAScanner.scanTarget.gameObject);
-            else
-                ArchipelagoUI.mouse_target_desc = "";
-        }
-    }
-#endif
-
-    //[HarmonyPatch(typeof(LeakingRadiation))]
-    //[HarmonyPatch("Start")]
-    //internal class LeakingRadiation_StopIntroCinematic_Patch
-    //{
-    //    [HarmonyPostfix]
-    //    public static void PrintRad(LeakingRadiation __instance)
-    //    {
-    //        ErrorMessage.AddError("Radiation max: " + __instance.kMaxRadius + " at " + __instance.gameObject.transform.position.ToString());
-    //    }
-    //}
-
-
 
     [HarmonyPatch(typeof(Story.UnlockBlueprintData))]
     [HarmonyPatch("Trigger")]
@@ -827,6 +775,11 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool PreventStoryUnlock(Story.UnlockBlueprintData __instance)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return true;
+            }
+
             switch (__instance.techType)
             {
                 case TechType.RadiationSuit:
@@ -843,6 +796,10 @@ namespace Archipelago
     {
         public static void Add(string key, PDAEncyclopedia.Entry entry)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
             if (ArchipelagoData.Encyclopdia.TryGetValue(key, out var id))
             {
                 APState.SendLocID(id);
@@ -856,6 +813,10 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void PlayerDeath(DamageType damageType)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
             if (!APState.DeathLinkKilling)
             {
                 if (APState.ServerConnectInfo.death_link)
@@ -874,6 +835,10 @@ namespace Archipelago
         [HarmonyPostfix]
         public static void GameReady(EscapePod __instance)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
             DevConsole.SendConsoleCommand("explodeship");
             APState.ServerConnectInfo.index = 0; // New game detected
         }
@@ -885,6 +850,11 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool AdvanceRocketStage(Rocket __instance)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return true;
+            }
+
             __instance.currentRocketStage++;
             if (__instance.currentRocketStage == 5)
             {
@@ -905,6 +875,11 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool StartRocketConstruction(RocketConstructor __instance)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return true;
+            }
+
             TechType currentStageTech = __instance.rocket.GetCurrentStageTech();
             if (!KnownTech.Contains(currentStageTech))
             {
@@ -920,6 +895,11 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool SetLaunchStarted()
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return true;
+            }
+
             APState.send_completion();
             return true;
         }
@@ -932,6 +912,11 @@ namespace Archipelago
         [HarmonyPrefix]
         public static void NotifyGoalComplete(string key)
         {
+            if (APState.state != APState.State.InGame)
+            {
+                return;
+            }
+
             if (key == APState.GoalEvent)
             {
                 APState.send_completion();

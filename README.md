@@ -23,8 +23,13 @@ Noted differences:
 - Number of checks is always printed (even if none are available)
 - Depth of closest check is also printed.
 - Add support for not using Prawn Depth; python code is done but not checked in (coming soon)
+- Allow the Cyclops Shield Generator to be built at the Moonpool (prep for removing vehicles)
+    - This will be predicated on the cyclops not existing in game in the future; left as a curio for now
+- Added a "Cancel" button to the login. If pressed, can play original Subnautica without patches.
+- Removed Picture Frame scan possibility (accidental oversight)
+- Added backwards compatibility for original archipelago (parses swim depth as a string)
+- Allow for vehicles to override PreSeaglide distance
+- not here (in python), interior growbed (as a separate item)
 
 Hopefully coming soon:
-- not showing fish not in logic
-- showing depth of current "closest" fish
 - flora?

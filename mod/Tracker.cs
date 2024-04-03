@@ -50,8 +50,8 @@ namespace Archipelago
                 }
             }
 
-            // Distance -- if we don't have the seaglide, too far away isn't in logic
-            if (! HasSeaglide && ArchipelagoData.Locations[locID].distance_to_origin > nonSeaglideDistance)
+            // Distance -- if we don't have the seaglide (or appropriate vehicle), too far away isn't in logic
+            if (! (HasSeaglide || LogicVehicle == "Seamoth" || LogicVehicle == "Cyclops") && ArchipelagoData.Locations[locID].distance_to_origin > nonSeaglideDistance)
             {
                 return false;
             }

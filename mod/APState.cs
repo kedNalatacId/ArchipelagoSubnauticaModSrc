@@ -30,7 +30,8 @@ namespace Archipelago
         public enum State
         {
             Menu,
-            InGame
+            InGame,
+            Cancelled
         }
 
         public static Dictionary<string, string> GoalMapping = new Dictionary<string, string>()
@@ -153,6 +154,7 @@ namespace Archipelago
             TechType.SingleWallShelf,
             TechType.WallShelves,
             TechType.Bench,
+            TechType.PictureFrame,
             TechType.PlanterPot,
             TechType.PlanterShelf,
             TechType.PlanterPot2,
@@ -163,40 +165,6 @@ namespace Archipelago
 
         public static TrackerMode TrackedMode = TrackerMode.Logical;
         public static HashSet<TechType> TechFragmentsToDestroy = new HashSet<TechType>();
-
-#if DEBUG
-        public static string InspectGameObject(GameObject gameObject)
-        {
-            string msg = gameObject.transform.position.ToString().Trim() + ": ";
-
-            var tech_tag = gameObject.GetComponent<TechTag>();
-            if (tech_tag != null)
-            {
-                msg += "(" + tech_tag.type.ToString() + ")";
-            }
-
-            Component[] components = gameObject.GetComponents(typeof(Component));
-            for (int i = 0; i < components.Length; i++)
-            {
-                var component = components[i];
-                var component_name = components[i].ToString().Split('(').GetLast();
-                component_name = component_name.Substring(0, component_name.Length - 1);
-
-                msg += component_name;
-
-                if (component_name == "ResourceTracker")
-                {
-                    var techTypeMember = typeof(ResourceTracker).GetField("techType", BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.Instance);
-                    var techType = (TechType)techTypeMember.GetValue(component);
-                    msg += $"({techType.ToString()},{((ResourceTracker)component).overrideTechType.ToString()})";
-                }
-
-                msg += ", ";
-            }
-
-            return msg;
-        }
-#endif
 
         public static bool Connect()
         {
@@ -244,7 +212,34 @@ namespace Archipelago
                 state = State.InGame;
                 if (loginSuccess.SlotData.TryGetValue("swim_rule", out var swim_rule))
                 {
-                    SwimRule = Convert.ToInt32(swim_rule);
+                    // Allow old-style SwimRule to be passed; parse it here, not in Tracker later.
+                    string DepthString = Convert.ToString(swim_rule);
+
+                    // if it's not all digits, assume it's an old style string
+                    // we'll take default here as an acceptable worst-case
+                    if (!DepthString.All(c => Char.IsDigit(c)))
+                    {
+                        var nameParts = DepthString.Split('_');
+                        ConsiderItems = nameParts.Length > 1;
+
+                        switch (nameParts.GetLast())
+                        {
+                            case "easy":
+                                SwimRule = 200;
+                                break;
+                            case "normal":
+                                SwimRule = 400;
+                                break;
+                            default:
+                                SwimRule = 600;
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        SwimRule = Convert.ToInt32(swim_rule);
+                    }
+
                     if (SwimRule < 100)
                     {
                         SwimRule = 100;
@@ -388,21 +383,6 @@ namespace Archipelago
                 SendLocID(closest_id);
                 return true;
             }
-#if DEBUG
-            ErrorMessage.AddError("Tried to check unregistered Location at: " + position);
-            Debug.LogError("Tried to check unregistered Location at: " + position);
-/*          foreach (var location in LOCATIONS)
-            {
-                var dist = Vector3.Distance(location.Value.Position, position);
-                if (dist < closestDist)
-                {
-                    closestDist = dist;
-                    closest_id = location.Key;
-                }
-            } */
-            ErrorMessage.AddError("Could it be Location ID " + closest_id + " with a distance of "+closestDist + "?");
-            Debug.LogError("Could it be Location ID " + closest_id + " with a distance of "+closestDist + "?");
-#endif
             return false;
         }
 
