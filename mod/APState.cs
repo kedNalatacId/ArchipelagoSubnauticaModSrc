@@ -257,7 +257,7 @@ namespace Archipelago
                 {
                     ConsiderExtGrowbed = Convert.ToInt32(consider_growbed) > 0;
                 }
-                if (loginSuccess.SlotData.TryGetValue("seaglide_distance", out var seaglide_distance))
+                if (loginSuccess.SlotData.TryGetValue("pre_seaglide_distance", out var seaglide_distance))
                 {
                     SeaglideDistance = Convert.ToInt32(seaglide_distance);
                     if (SeaglideDistance < 600)
