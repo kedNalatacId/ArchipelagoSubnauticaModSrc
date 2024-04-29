@@ -16,8 +16,7 @@ namespace Archipelago
     public class TrackerThread
     {
         public static bool ItemsRelevant      = false;
-        public static bool ExtGrowbedRelevant = false;
-        public static int BaseDepth           = 200;
+        public static int BaseDepth           = 601;
         public static int SeaglideDepth       = 200;
         public static int nonSeaglideDistance = 800;
         public static int LogicSwimDepth      = BaseDepth;
@@ -26,18 +25,72 @@ namespace Archipelago
         public static bool HasSeaglide        = false;
         public static bool HasRadiationSuit   = false;
         public static bool IgnoreRadiation    = false;
-        public static bool ElidePrawn         = false;
+        public static bool CanSlipThrough     = false;
+        public static bool IncludeSeamoth     = true;
+        public static bool IncludePrawn       = true;
+        public static bool IncludeCyclops     = true;
         public static string LogicVehicle     = "Vehicle";
-        public static long scanCutOff         = 33999;
+        public static long creatureScanCutOff = 33999;
+        public static long plantScanCutOff    = 34499;
 
         public static bool InLogic(long locID)
         {
-            // Gating items
+            // special case; if we can slip through, then either laser cutter or propulsion; otherwise just propulsion
+            // Allows these 2x locations to be available via laser cutter (if no radiation) where they otherwise wouldn't.
+            if (locID == 33107 || locID == 33108)
+            {
+                if (CanSlipThrough)
+                {
+                    if (!KnownTech.Contains(TechType.LaserCutter) && !KnownTech.Contains(TechType.PropulsionCannon))
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (!KnownTech.Contains(TechType.PropulsionCannon))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            // Gating items; now with less gating
             foreach (var logic in ArchipelagoData.LogicDict)
             {
-                if (!KnownTech.Contains(logic.Key) && logic.Value.Contains(locID))
+                // Don't check these here (they're checked above)
+                if (locID == 33107 || locID == 33108)
                 {
-                    return false;
+                    continue;
+                }
+
+                // Propulsion Cannon
+                if (logic.Key == (TechType)757)
+                {
+                    // The only 2x hard locked propulsion cannon locations (all others "can slip")
+                    // This is a little "magic number"y... but it works.
+                    if (locID == 33053 || locID == 33054)
+                    {
+                        if (!KnownTech.Contains(logic.Key))
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        if (!CanSlipThrough && !KnownTech.Contains(logic.Key))
+                        {
+                            return false;
+                        }
+                    }
+                }
+                // Laser Cutter -- hard stop
+                else if (logic.Key == (TechType)761)
+                {
+                    if (!KnownTech.Contains(logic.Key))
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -51,7 +104,7 @@ namespace Archipelago
             }
 
             // Distance -- if we don't have the seaglide (or appropriate vehicle), too far away isn't in logic
-            if (! (HasSeaglide || LogicVehicle == "Seamoth" || LogicVehicle == "Cyclops") && ArchipelagoData.Locations[locID].distance_to_origin > nonSeaglideDistance)
+            if (ArchipelagoData.Locations[locID].distance_to_origin > nonSeaglideDistance && !HasSeaglide && LogicVehicle != "Seamoth" && LogicVehicle != "Cyclops")
             {
                 return false;
             }
@@ -66,15 +119,28 @@ namespace Archipelago
             LogicSwimDepth      = APState.SwimRule;
             SeaglideDepth       = APState.SeaglideDepth;
             ItemsRelevant       = APState.ConsiderItems;
-            ExtGrowbedRelevant  = APState.ConsiderExtGrowbed;
             nonSeaglideDistance = APState.SeaglideDistance;
+            CanSlipThrough      = APState.CanSlipThrough;
             IgnoreRadiation     = APState.IgnoreRadiation;
-            ElidePrawn          = APState.ElidePrawn;
+            IncludeSeamoth      = APState.SeamothState == APState.Inclusion.Included;
+            IncludePrawn        = APState.PrawnState == APState.Inclusion.Included;
+            IncludeCyclops      = APState.CyclopsState == APState.Inclusion.Included;
         }
 
         public static bool UpdateRadiationSuit()
         {
             return KnownTech.Contains(TechType.RadiationSuit);
+        }
+
+        public static int getTheoreticalLogicDepth(int candidateVehicleDepth)
+        {
+            int coreDepth = BaseDepth + candidateVehicleDepth;
+            if (ItemsRelevant)
+            {
+                return coreDepth + SeaglideDepth + 150;
+            }
+
+            return coreDepth;
         }
 
         public static int UpdateLogicDepth()
@@ -83,11 +149,6 @@ namespace Archipelago
             if (! ItemsRelevant)
             {
                 return itemdepth;
-            }
-
-            if (ExtGrowbedRelevant && KnownTech.Contains(TechType.FarmingTray))
-            {
-                itemdepth += 500;
             }
 
             bool hasModStation = KnownTech.Contains(TechType.Workbench);
@@ -128,7 +189,7 @@ namespace Archipelago
 
         public static int getSeamothDepth(bool has_mod, bool has_upg)
         {
-            if (! KnownTech.Contains(TechType.Seamoth))
+            if (! (IncludeSeamoth && KnownTech.Contains(TechType.Seamoth)))
             {
                 return 0;
             }
@@ -152,7 +213,7 @@ namespace Archipelago
 
         public static int getPrawnDepth(bool has_mod, bool has_upg)
         {
-            if (ElidePrawn || ! KnownTech.Contains(TechType.Exosuit))
+            if (! (IncludePrawn && KnownTech.Contains(TechType.Exosuit)))
             {
                 return 0;
             }
@@ -172,7 +233,7 @@ namespace Archipelago
 
         public static int getCyclopsDepth(bool has_mod, bool has_upg)
         {
-            if (! KnownTech.Contains(TechType.Cyclops))
+            if (! (IncludeCyclops && KnownTech.Contains(TechType.Cyclops)))
             {
                 return 0;
             }
@@ -235,6 +296,49 @@ namespace Archipelago
             LogicVehicleDepth = maxDepth;
         }
 
+        public static void UpdateAdvancedDepth()
+        {
+            int maxDepth = 0;
+            string logicVehicleName = "Vehicle";
+
+            if (KnownTech.Contains(TechType.FarmingTray))
+            {
+                maxDepth += 500;
+                logicVehicleName = "Advanced";
+            }
+
+            bool hasReactor = false;
+            bool hasReactorCapableRoom = KnownTech.Contains(TechType.BaseRoom) || KnownTech.Contains(TechType.BaseLargeRoom);
+
+            // Uraninite spawns at ~500m; don't assume any drops from AP
+            if (BaseDepth + maxDepth > 500 && hasReactorCapableRoom && KnownTech.Contains(TechType.NuclearReactor))
+            {
+                hasReactor = true;
+                logicVehicleName = "Advanced";
+            }
+
+            // Bio fuel is easy to come by at all depths
+            if (hasReactorCapableRoom && KnownTech.Contains(TechType.Bioreactor))
+            {
+                hasReactor = true;
+                logicVehicleName = "Advanced";
+            }
+
+            // Need the transmitter to get the electricity back to the base
+            if (KnownTech.Contains(TechType.ThermalPlant) && KnownTech.Contains(TechType.PowerTransmitter))
+            {
+                hasReactor = true;
+                logicVehicleName = "Advanced";
+            }
+            if (hasReactor)
+            {
+                maxDepth += 1500;
+            }
+
+            LogicVehicle = logicVehicleName;
+            LogicVehicleDepth = maxDepth;
+        }
+
         public static void UpdateTrackedLocation()
         {
             float closestDist = 100000.0f;
@@ -245,7 +349,7 @@ namespace Archipelago
             foreach (var locID in APState.Session.Locations.AllMissingLocations)
             {
                 // Check that it's a static location
-                if (locID < scanCutOff)
+                if (locID < creatureScanCutOff)
                 {
                     trackingCount++;
                     // Skip locations not in logic
@@ -282,7 +386,7 @@ namespace Archipelago
             foreach (var locID in APState.Session.Locations.AllMissingLocations)
             {
                 // Check that it's a static location
-                if (locID > scanCutOff)
+                if (locID > creatureScanCutOff && locID < plantScanCutOff)
                 {
                     remainingFish.Add(locID);
                 }
@@ -307,6 +411,37 @@ namespace Archipelago
             APState.TrackedFish = String.Join(", ", display_fish);
         }
 
+        public static void UpdateTrackedPlants()
+        {
+            int maxPlants = 7;
+            var remainingPlants = new List<long>();
+            foreach (var locID in APState.Session.Locations.AllMissingLocations)
+            {
+                if (locID > plantScanCutOff)
+                {
+                    remainingPlants.Add(locID);
+                }
+            }
+
+            APState.TrackedPlantCount = remainingPlants.Count;
+            if (APState.TrackedPlantCount == 0)
+            {
+                APState.TrackedPlants = "";
+                return;
+            }
+
+            remainingPlants.Sort();
+            var display_plants = new List<string>();
+            for (int i = 0; i < Math.Min(APState.TrackedPlantCount, maxPlants); i++)
+            {
+                display_plants.Add(
+                    APState.Session.Locations.GetLocationNameFromId(
+                        remainingPlants[i]).Replace(
+                            " Scan", ""));
+            }
+            APState.TrackedPlants = String.Join(", ", display_plants);
+        }
+
         // Debug.Log doesn't want to work in the thread, despite documentation saying it is threadsafe.
         // So this is the solution for now, and probably ever.
         // 
@@ -329,6 +464,7 @@ namespace Archipelago
                 if (APState.state != APState.State.InGame || APState.Session == null || Player.main == null)
                 {
                     APState.TrackedFishCount = 0;
+                    APState.TrackedPlantCount = 0;
                     APState.TrackedLocationsCount = 0;
                     APState.TrackedLocation = -1;
                     continue;
@@ -341,10 +477,25 @@ namespace Archipelago
 
                 HasRadiationSuit = UpdateRadiationSuit();
                 LogicItemDepth = UpdateLogicDepth();
-                UpdateVehicleDepth();
+
+                bool seamothCanMakeIt = false;
+                if (IncludeSeamoth && getTheoreticalLogicDepth(900) > 1444)
+                {
+                    seamothCanMakeIt = true;
+                }
+
+                if (!seamothCanMakeIt && !IncludePrawn && !IncludeCyclops)
+                {
+                    UpdateAdvancedDepth();
+                }
+                else
+                {
+                    UpdateVehicleDepth();
+                }
+
                 UpdateTrackedLocation();
                 UpdateTrackedFish();
-                // UpdateTrackedPlants();
+                UpdateTrackedPlants();
             }
         }
     }

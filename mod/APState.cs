@@ -34,6 +34,13 @@ namespace Archipelago
             Cancelled
         }
 
+        public enum Inclusion
+        {
+            Included,
+            NotInLogic,
+            Excluded
+        }
+
         public static Dictionary<string, string> GoalMapping = new Dictionary<string, string>()
         {
             { "free", "Goal_Disable_Gun" },
@@ -53,19 +60,23 @@ namespace Archipelago
         public static bool Authenticated;
         public static string Goal = "launch";
         public static string GoalEvent = "";
-        public static int SwimRule = 200;
+        public static int SwimRule = 601;
         public static bool ConsiderItems = false;
-        public static bool ConsiderExtGrowbed = false;
         public static int SeaglideDepth = 200;
         public static int SeaglideDistance = 800;
+        public static Inclusion SeamothState = Inclusion.Included;
+        public static Inclusion PrawnState = Inclusion.Included;
+        public static Inclusion CyclopsState = Inclusion.Included;
         public static bool IgnoreRadiation = false;
-        public static bool ElidePrawn = false;
+        public static bool CanSlipThrough = false;
         public static bool FreeSamples;
         public static bool Silent = false;
         public static Thread TrackerProcessing;
         public static long TrackedLocationsCount = 0;
         public static long TrackedFishCount = 0;
         public static string TrackedFish = "";
+        public static int TrackedPlantCount = 0;
+        public static string TrackedPlants = "";
         public static long TrackedLocation = -1;
         public static string TrackedLocationName;
         public static float TrackedDistance;
@@ -194,128 +205,150 @@ namespace Archipelago
                 "",
                 ServerConnectInfo.password);
 
-            if (loginResult is LoginSuccessful loginSuccess)
-            {
-                var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
-                var rawPath = storage?.GetType().GetField("savePath",
-                        BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(storage);
-                if (rawPath != null)
-                {
-                    ServerConnectInfo.GetAsLastConnect().WriteToFile(rawPath + "/archipelago_last_connection.json");
-                }
-                else
-                {
-                    Debug.LogError("Could not write most recent connect info to file.");
-                }
-
-                Authenticated = true;
-                state = State.InGame;
-                if (loginSuccess.SlotData.TryGetValue("swim_rule", out var swim_rule))
-                {
-                    // Allow old-style SwimRule to be passed; parse it here, not in Tracker later.
-                    string DepthString = Convert.ToString(swim_rule);
-
-                    // if it's not all digits, assume it's an old style string
-                    // we'll take default here as an acceptable worst-case
-                    if (!DepthString.All(c => Char.IsDigit(c)))
-                    {
-                        var nameParts = DepthString.Split('_');
-                        ConsiderItems = nameParts.Length > 1;
-
-                        switch (nameParts.GetLast())
-                        {
-                            case "easy":
-                                SwimRule = 200;
-                                break;
-                            case "normal":
-                                SwimRule = 400;
-                                break;
-                            default:
-                                SwimRule = 600;
-                                break;
-                        }
-                    }
-                    else
-                    {
-                        SwimRule = Convert.ToInt32(swim_rule);
-                    }
-
-                    if (SwimRule < 100)
-                    {
-                        SwimRule = 100;
-                    }
-                    if (SwimRule > 600)
-                    {
-                        SwimRule = 600;
-                    }
-                }
-                if (loginSuccess.SlotData.TryGetValue("consider_items", out var consider_items))
-                {
-                    ConsiderItems = Convert.ToInt32(consider_items) > 0;
-                }
-                if (loginSuccess.SlotData.TryGetValue("consider_exterior_growbed", out var consider_growbed))
-                {
-                    ConsiderExtGrowbed = Convert.ToInt32(consider_growbed) > 0;
-                }
-                if (loginSuccess.SlotData.TryGetValue("pre_seaglide_distance", out var seaglide_distance))
-                {
-                    SeaglideDistance = Convert.ToInt32(seaglide_distance);
-                    if (SeaglideDistance < 600)
-                    {
-                        SeaglideDistance = 600;
-                    }
-                    if (SeaglideDistance > 2500)
-                    {
-                        SeaglideDistance = 2500;
-                    }
-                }
-                if (loginSuccess.SlotData.TryGetValue("seaglide_depth", out var seaglide_depth))
-                {
-                    SeaglideDepth = Convert.ToInt32(seaglide_depth);
-                    if (SeaglideDepth < 100)
-                    {
-                        SeaglideDepth = 100;
-                    }
-                    if (SeaglideDepth > 400)
-                    {
-                        SeaglideDepth = 400;
-                    }
-                }
-                if (loginSuccess.SlotData.TryGetValue("free_samples", out var free_samples))
-                {
-                    FreeSamples = Convert.ToInt32(free_samples) > 0;
-                }
-                if (loginSuccess.SlotData.TryGetValue("ignore_radiation", out var ignore_radiation))
-                {
-                    IgnoreRadiation = Convert.ToInt32(ignore_radiation) > 0;
-                }
-                if (loginSuccess.SlotData.TryGetValue("ignore_prawn_depth", out var ignore_prawn_depth))
-                {
-                    ElidePrawn = Convert.ToInt32(ignore_prawn_depth) < 1;
-                }
-                Goal = (string)loginSuccess.SlotData["goal"];
-                GoalMapping.TryGetValue(Goal, out GoalEvent);
-                if (loginSuccess.SlotData["vanilla_tech"] is JArray temp)
-                {
-                    foreach (var tech in temp)
-                    {
-                        vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
-                    }
-                }
-
-                Debug.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData));
-                ServerConnectInfo.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;
-                set_deathlink();
-            }
-            else if (loginResult is LoginFailure loginFailure)
+            if (loginResult is LoginFailure loginFailure)
             {
                 Authenticated = false;
                 Debug.LogError(String.Join("\n", loginFailure.Errors));
                 Session = null;
                 ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", loginFailure.Errors));
+                return false;
             }
+
+            LoginSuccessful loginSuccess;
+            if (loginResult is LoginSuccessful tmp)
+            {
+                loginSuccess = tmp;
+            }
+            else
+            {
+                Authenticated = false;
+                Session = null;
+                return false;
+            }
+
+            var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
+            var rawPath = storage?.GetType().GetField("savePath",
+                    BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(storage);
+            if (rawPath != null)
+            {
+                ServerConnectInfo.GetAsLastConnect().WriteToFile(rawPath + "/archipelago_last_connection.json");
+            }
+            else
+            {
+                Debug.LogError("Could not write most recent connect info to file.");
+            }
+
+            Authenticated = true;
+            state = State.InGame;
+            if (loginSuccess.SlotData.TryGetValue("swim_rule", out var swim_rule))
+            {
+                // Allow old-style SwimRule to be passed; parse it here, not in Tracker later.
+                string DepthString = Convert.ToString(swim_rule);
+
+                // if it's not all digits, assume it's an old style string
+                // we'll take default here as an acceptable worst-case
+                if (!DepthString.All(c => Char.IsDigit(c)))
+                {
+                    var nameParts = DepthString.Split('_');
+                    ConsiderItems = nameParts.Length > 1;
+
+                    switch (nameParts.GetLast())
+                    {
+                        case "easy":
+                            SwimRule = 200;
+                            break;
+                        case "normal":
+                            SwimRule = 400;
+                            break;
+                        default:
+                            SwimRule = 600;
+                            break;
+                    }
+                }
+                else
+                {
+                    SwimRule = Convert.ToInt32(swim_rule);
+                }
+
+                if (SwimRule < 100)
+                {
+                    SwimRule = 100;
+                }
+                if (SwimRule > 600)
+                {
+                    SwimRule = 600;
+                }
+            }
+            if (loginSuccess.SlotData.TryGetValue("consider_items", out var consider_items))
+            {
+                ConsiderItems = Convert.ToInt32(consider_items) > 0;
+            }
+            if (loginSuccess.SlotData.TryGetValue("pre_seaglide_distance", out var seaglide_distance))
+            {
+                SeaglideDistance = Convert.ToInt32(seaglide_distance);
+                if (SeaglideDistance < 600)
+                {
+                    SeaglideDistance = 600;
+                }
+                if (SeaglideDistance > 2500)
+                {
+                    SeaglideDistance = 2500;
+                }
+                Debug.Log("PreSeaglideDistance: " + SeaglideDistance);
+            }
+            if (loginSuccess.SlotData.TryGetValue("seaglide_depth", out var seaglide_depth))
+            {
+                SeaglideDepth = Convert.ToInt32(seaglide_depth);
+                if (SeaglideDepth < 100)
+                {
+                    SeaglideDepth = 100;
+                }
+                if (SeaglideDepth > 400)
+                {
+                    SeaglideDepth = 400;
+                }
+            }
+            if (loginSuccess.SlotData.TryGetValue("include_seamoth", out var include_seamoth))
+            {
+                SeamothState = (Inclusion)include_seamoth;
+            }
+            if (loginSuccess.SlotData.TryGetValue("include_prawn", out var include_prawn))
+            {
+                PrawnState = (Inclusion)include_prawn;
+            }
+            if (loginSuccess.SlotData.TryGetValue("include_cyclops", out var include_cyclops))
+            {
+                CyclopsState = (Inclusion)include_cyclops;
+            }
+            if (loginSuccess.SlotData.TryGetValue("free_samples", out var free_samples))
+            {
+                FreeSamples = Convert.ToInt32(free_samples) > 0;
+            }
+            if (loginSuccess.SlotData.TryGetValue("can_slip_through", out var can_slip_through))
+            {
+                CanSlipThrough = Convert.ToInt32(can_slip_through) > 0;
+            }
+            if (loginSuccess.SlotData.TryGetValue("ignore_radiation", out var ignore_radiation))
+            {
+                IgnoreRadiation = Convert.ToInt32(ignore_radiation) > 0;
+            }
+            Goal = (string)loginSuccess.SlotData["goal"];
+            GoalMapping.TryGetValue(Goal, out GoalEvent);
+            if (loginSuccess.SlotData["vanilla_tech"] is JArray temp)
+            {
+                foreach (var tech in temp)
+                {
+                    vanillaTech.Add((TechType)Enum.Parse(typeof(TechType), tech.ToString()));
+                }
+            }
+
+            Debug.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData));
+            ServerConnectInfo.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;
+            set_deathlink();
+
             // all fragments
             TechFragmentsToDestroy = new HashSet<TechType>(APState.tech_fragments);
+
             // remove vanilla so it's scannable
             TechFragmentsToDestroy.ExceptWith(vanillaTech);
             Debug.Log("Preventing scanning of: " + string.Join(", ", TechFragmentsToDestroy));

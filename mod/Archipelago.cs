@@ -90,26 +90,38 @@ namespace Archipelago
                     GUI.Label(new Rect(16, 36, 1000, 20), text);
                 }
 
+                int showing_fish = 0;
                 if (APState.TrackedFishCount > 0 && APState.TrackedMode != TrackerMode.Disabled)
                 {
+                    showing_fish = 1;
                     GUI.Label(new Rect(16, 56, 1000, 22),
-                        "Fish left: "+APState.TrackedFishCount + ". Such as: "+APState.TrackedFish);
+                        "Fish left: " + APState.TrackedFishCount + ". Such as: " + APState.TrackedFish);
+                }
+
+                int showing_plants = 0;
+                if (APState.TrackedPlantCount > 0 && APState.TrackedMode != TrackerMode.Disabled)
+                {
+                    showing_plants = 1;
+                    int y_pos = 56 + (showing_fish * 20);
+                    GUI.Label(new Rect(16, y_pos, 1000, 22),
+                        "Plants left: " + APState.TrackedPlantCount + ". Such as: " + APState.TrackedFish);
                 }
 
                 if (PlayerNearStart())
                 {
-                    GUI.Label(new Rect(16, 76, 1000, 22),
-                        "Goal: "+APState.Goal);
+                    int y_pos = 56 + (showing_fish * 20) + (showing_plants * 20);
+                    GUI.Label(new Rect(16, y_pos, 1000, 22), "Goal: " + APState.Goal);
+
                     if (APState.SwimRule == 0)
                     {
-                        GUI.Label(new Rect(16, 96, 1000, 22),
+                        GUI.Label(new Rect(16, y_pos + 20, 1000, 22),
                             "No Swim Rule sent by Server. Assuming items_hard." +
                             " Current Logical Depth: " + (TrackerThread.LogicSwimDepth +
                                                           TrackerThread.LogicVehicleDepth));
                     }
                     else
                     {
-                        GUI.Label(new Rect(16, 96, 1000, 22),
+                        GUI.Label(new Rect(16, y_pos + 20, 1000, 22),
                             // "Swim Rule: " + APState.SwimRule
                             "Current Logical Depth: " + (TrackerThread.LogicSwimDepth + TrackerThread.LogicItemDepth + TrackerThread.LogicVehicleDepth)
                             + " = " + TrackerThread.LogicSwimDepth + " (Swim) + " + TrackerThread.LogicItemDepth + " (items) + "
@@ -118,7 +130,7 @@ namespace Archipelago
                 }
                 if (!APState.TrackerProcessing.IsAlive)
                 {
-                    GUI.Label(new Rect(16, 116, 1000, 22),
+                    GUI.Label(new Rect(16, 136, 1000, 22),
                         "Error: Tracker Thread died. Tracker will not update.");
                 }
             }
@@ -481,10 +493,8 @@ namespace Archipelago
     }
 
 
-    /* WIP -- to remove the Cyclops we need to be able to construct the Shield Generator elsewhere.
-        This is one such possibility.
-
-        This (or whatever replaces it) needs to be updated with logic about cyclops not otherwise being available.
+    /* WIP -- Need to set the text for this, and change the icon.
+        It's not a problem that it only shows up if the recipe is unlocked (game feature, unrelated).
     */
     [HarmonyPatch(typeof(CraftTree))]
     [HarmonyPatch("SeamothUpgradesScheme")]
@@ -494,6 +504,12 @@ namespace Archipelago
         public static bool AdditionalShieldGenerator(ref CraftNode __result)
         {
             if (APState.state != APState.State.InGame)
+            {
+                return true;
+            }
+
+            // We only need to run this if the Cyclops isn't in game and we're trying to goal
+            if (APState.CyclopsState != APState.Inclusion.Excluded && APState.Goal == "launch")
             {
                 return true;
             }
@@ -530,6 +546,41 @@ namespace Archipelago
             );
 
             return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Language))]
+    [HarmonyPatch("Get")]
+    internal class MoonpoolFabricator_CraftNodeText
+    {
+        [HarmonyPrefix]
+        public static bool RewriteCraftNodeText(ref string __result, string key)
+        {
+            if (APState.state != APState.State.InGame)
+            {
+                return true;
+            }
+
+            // We only need to run this if the Cyclops isn't in game and we're trying to goal
+            if (APState.CyclopsState != APState.Inclusion.Excluded && APState.Goal == "launch")
+            {
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(key))
+            {
+                return true;
+            }
+            // This is our own made-up string, it doesn't technically match anything.
+            if (key == "SeamothUpgradesMenu_CyclopsModules")
+            {
+                // Use a built-in replacement so it's translated properly for us
+                // comes out as "Cyclops Upgrades"
+                __result = Language.main.Get("TechCategoryCyclopsUpgrades");
+                return false;
+            }
+
+            return true;
         }
     }
 
