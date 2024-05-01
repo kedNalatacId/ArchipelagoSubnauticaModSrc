@@ -17,19 +17,20 @@ Noted differences:
     - defaults to 200m (old default)
 - "Consider Exterior Growbed" adds (currently) 500m depth; iykyk
 - "PreSeaglideDistance" is a range from 600m to edge of map (2500m)
-    - Anything outside this range is considered out of logic until the seaglide is crafted
-    - Shortening the range puts the seaglide very early  in single-player mode
+    - Shortening the range puts the seaglide very early in single-player mode
+    - Anything outside this range is considered out of logic until the seaglide, seamoth, or cyclops is crafted
+        - TODO: Add Prawn with grapple?
 - "Ignore Radiation" means logic doesn't care about the radiation suit (opens aurora as sphere one)
 - Number of checks is always printed (even if none are available)
 - Depth of closest check is also printed.
-- Add support for not using Prawn Depth; python code is done but not checked in (coming soon)
-- Allow the Cyclops Shield Generator to be built at the Moonpool (prep for removing vehicles)
-    - This will be predicated on the cyclops not existing in game in the future; left as a curio for now
-- Added a "Cancel" button to the login. If pressed, can play original Subnautica without patches.
+- Allow ignoring all 3x vehicles logically, or removing them entirely
+    - Use alternate logic if all 3x vehicles are gone
+    - Allow the Cyclops Shield Generator to be built at the Moonpool if the Cyclops is not in game and the goal is "launch"
+- Added a "Cancel" button to the login. If pressed, can play non-AP Subnautica.
 - Removed Picture Frame scan possibility (accidental oversight)
-- Added backwards compatibility for original archipelago (parses swim depth as a string)
-- Allow for vehicles to override PreSeaglide distance
+- Added backwards compatibility for original archipelago mod
+    - correctly parse and bypass: SwimRule, Propulsion Cannon, and Seaglide
+- Added "Can Slip Through" option for bypassing Propulsion Cannon on certain checks (mostly Aurora)
+    - Fixed tracking for 2x weird spots in the Aurora when "Can Slip Through" is true
 - not here (in python), interior growbed (as a separate item)
-
-Hopefully coming soon:
-- flora?
+- flora (plant scanning; requires updating the encyclopedia.json)
