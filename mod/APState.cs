@@ -278,10 +278,12 @@ namespace Archipelago
                 {
                     SwimRule = 600;
                 }
+                Debug.Log("Swim Rule: " + SwimRule);
             }
             if (loginSuccess.SlotData.TryGetValue("consider_items", out var consider_items))
             {
                 ConsiderItems = Convert.ToInt32(consider_items) > 0;
+                Debug.Log("Consider Items: " + ConsiderItems);
             }
             if (loginSuccess.SlotData.TryGetValue("pre_seaglide_distance", out var seaglide_distance))
             {
@@ -307,18 +309,32 @@ namespace Archipelago
                 {
                     SeaglideDepth = 400;
                 }
+                Debug.Log("Seaglide Depth: " + SeaglideDepth);
             }
             if (loginSuccess.SlotData.TryGetValue("include_seamoth", out var include_seamoth))
             {
-                SeamothState = (Inclusion)include_seamoth;
+                // This convoluted mess... works. It only has to run on load, so... good enough for now.
+                if (Enum.TryParse(include_seamoth.ToString(), true, out Inclusion really_include_seamoth))
+                {
+                    SeamothState = really_include_seamoth;
+                }
+                Debug.Log("Seamoth State: " + SeamothState);
             }
             if (loginSuccess.SlotData.TryGetValue("include_prawn", out var include_prawn))
             {
-                PrawnState = (Inclusion)include_prawn;
+                if (Enum.TryParse(include_prawn.ToString(), true, out Inclusion really_include_prawn))
+                {
+                    PrawnState = really_include_prawn;
+                }
+                Debug.Log("Prawn State: " + PrawnState);
             }
             if (loginSuccess.SlotData.TryGetValue("include_cyclops", out var include_cyclops))
             {
-                CyclopsState = (Inclusion)include_cyclops;
+                if (Enum.TryParse(include_cyclops.ToString(), true, out Inclusion really_include_cyclops))
+                {
+                    CyclopsState = really_include_cyclops;
+                }
+                Debug.Log("Cyclops State: " + CyclopsState);
             }
             if (loginSuccess.SlotData.TryGetValue("free_samples", out var free_samples))
             {
@@ -327,10 +343,12 @@ namespace Archipelago
             if (loginSuccess.SlotData.TryGetValue("can_slip_through", out var can_slip_through))
             {
                 CanSlipThrough = Convert.ToInt32(can_slip_through) > 0;
+                Debug.Log("Can Slip Through: " + CanSlipThrough);
             }
             if (loginSuccess.SlotData.TryGetValue("ignore_radiation", out var ignore_radiation))
             {
                 IgnoreRadiation = Convert.ToInt32(ignore_radiation) > 0;
+                Debug.Log("Ignore Radiation: " + IgnoreRadiation);
             }
             Goal = (string)loginSuccess.SlotData["goal"];
             GoalMapping.TryGetValue(Goal, out GoalEvent);

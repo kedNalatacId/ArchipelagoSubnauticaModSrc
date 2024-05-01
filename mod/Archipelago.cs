@@ -104,7 +104,7 @@ namespace Archipelago
                     showing_plants = 1;
                     int y_pos = 56 + (showing_fish * 20);
                     GUI.Label(new Rect(16, y_pos, 1000, 22),
-                        "Plants left: " + APState.TrackedPlantCount + ". Such as: " + APState.TrackedFish);
+                        "Plants left: " + APState.TrackedPlantCount + ". Such as: " + APState.TrackedPlants);
                 }
 
                 if (PlayerNearStart())

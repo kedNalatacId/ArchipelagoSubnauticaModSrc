@@ -31,7 +31,7 @@ namespace Archipelago
         public static bool IncludeCyclops     = true;
         public static string LogicVehicle     = "Vehicle";
         public static long creatureScanCutOff = 33999;
-        public static long plantScanCutOff    = 34499;
+        public static long plantScanCutOff    = 34099;
 
         public static bool InLogic(long locID)
         {
@@ -311,14 +311,14 @@ namespace Archipelago
             bool hasReactorCapableRoom = KnownTech.Contains(TechType.BaseRoom) || KnownTech.Contains(TechType.BaseLargeRoom);
 
             // Uraninite spawns at ~500m; don't assume any drops from AP
-            if (BaseDepth + maxDepth > 500 && hasReactorCapableRoom && KnownTech.Contains(TechType.NuclearReactor))
+            if (BaseDepth + maxDepth > 500 && hasReactorCapableRoom && KnownTech.Contains(TechType.BaseNuclearReactor))
             {
                 hasReactor = true;
                 logicVehicleName = "Advanced";
             }
 
             // Bio fuel is easy to come by at all depths
-            if (hasReactorCapableRoom && KnownTech.Contains(TechType.Bioreactor))
+            if (hasReactorCapableRoom && KnownTech.Contains(TechType.BaseBioReactor))
             {
                 hasReactor = true;
                 logicVehicleName = "Advanced";
@@ -386,7 +386,7 @@ namespace Archipelago
             foreach (var locID in APState.Session.Locations.AllMissingLocations)
             {
                 // Check that it's a static location
-                if (locID > creatureScanCutOff && locID < plantScanCutOff)
+                if (locID > creatureScanCutOff && locID <= plantScanCutOff)
                 {
                     remainingFish.Add(locID);
                 }
