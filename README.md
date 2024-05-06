@@ -29,8 +29,8 @@ Noted differences:
 - Added a "Cancel" button to the login. If pressed, can play non-AP Subnautica.
 - Removed Picture Frame scan possibility (accidental oversight)
 - Added backwards compatibility for original archipelago mod
-    - correctly parse and bypass: SwimRule, Propulsion Cannon, and Seaglide
-- Added "Can Slip Through" option for bypassing Propulsion Cannon on certain checks (mostly Aurora)
+    - correctly parse and bypass: SwimRule, Propulsion Cannon, Laser Cutter, and Seaglide
+- Added "Can Slip Through" option for bypassing Propulsion Cannon or Laser Cutter on certain checks
     - Fixed tracking for 2x weird spots in the Aurora when "Can Slip Through" is true
 - not here (in python), interior growbed (as a separate item)
 - flora (plant scanning; requires updating the encyclopedia.json)
