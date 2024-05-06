@@ -25,7 +25,6 @@ namespace Archipelago
         public static bool HasSeaglide        = false;
         public static bool HasRadiationSuit   = false;
         public static bool IgnoreRadiation    = false;
-        public static bool CanSlipThrough     = false;
         public static bool IncludeSeamoth     = true;
         public static bool IncludePrawn       = true;
         public static bool IncludeCyclops     = true;
@@ -33,13 +32,15 @@ namespace Archipelago
         public static long creatureScanCutOff = 33999;
         public static long plantScanCutOff    = 34099;
 
+        public static APState.SlipType CanSlipThrough = APState.SlipType.None;
+
         public static bool InLogic(long locID)
         {
             // special case; if we can slip through, then either laser cutter or propulsion; otherwise just propulsion
             // Allows these 2x locations to be available via laser cutter (if no radiation) where they otherwise wouldn't.
             if (locID == 33107 || locID == 33108)
             {
-                if (CanSlipThrough)
+                if (CanSlipThrough == APState.SlipType.PropulsionCannon)
                 {
                     if (!KnownTech.Contains(TechType.LaserCutter) && !KnownTech.Contains(TechType.PropulsionCannon))
                     {
@@ -67,29 +68,40 @@ namespace Archipelago
                 // Propulsion Cannon
                 if (logic.Key == (TechType)757)
                 {
-                    // The only 2x hard locked propulsion cannon locations (all others "can slip")
-                    // This is a little "magic number"y... but it works.
-                    if (locID == 33053 || locID == 33054)
+                    if (!KnownTech.Contains(logic.Key))
                     {
-                        if (!KnownTech.Contains(logic.Key))
+                        // The only 2x hard locked propulsion cannon locations (all others "can slip")
+                        // This is a little "magic number"y... but it works.
+                        if (locID == 33053 || locID == 33054)
                         {
                             return false;
                         }
-                    }
-                    else
-                    {
-                        if (!CanSlipThrough && !KnownTech.Contains(logic.Key))
+                        else
                         {
-                            return false;
+                            if (CanSlipThrough != APState.SlipType.PropulsionCannon && CanSlipThrough != APState.SlipType.Both)
+                            {
+                                return false;
+                            }
                         }
                     }
                 }
-                // Laser Cutter -- hard stop
+                // Laser Cutter
                 else if (logic.Key == (TechType)761)
                 {
                     if (!KnownTech.Contains(logic.Key))
                     {
-                        return false;
+                        // Laser Cutter is the opposite; only 2 spots "can slip", no others can
+                        if (locID == 33025 || locID == 33026)
+                        {
+                            if (CanSlipThrough != APState.SlipType.LaserCutter && CanSlipThrough != APState.SlipType.Both)
+                            {
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            return false;
+                        }
                     }
                 }
             }
@@ -104,7 +116,8 @@ namespace Archipelago
             }
 
             // Distance -- if we don't have the seaglide (or appropriate vehicle), too far away isn't in logic
-            if (ArchipelagoData.Locations[locID].distance_to_origin > nonSeaglideDistance && !HasSeaglide && LogicVehicle != "Seamoth" && LogicVehicle != "Cyclops")
+            if (ArchipelagoData.Locations[locID].distance_to_origin > nonSeaglideDistance
+                && !HasSeaglide && LogicVehicle != "Seamoth" && LogicVehicle != "Cyclops")
             {
                 return false;
             }

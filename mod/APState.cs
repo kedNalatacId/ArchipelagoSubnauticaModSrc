@@ -41,6 +41,14 @@ namespace Archipelago
             Excluded
         }
 
+        public enum SlipType
+        {
+            None,
+            LaserCutter,
+            PropulsionCannon,
+            Both
+        }
+
         public static Dictionary<string, string> GoalMapping = new Dictionary<string, string>()
         {
             { "free", "Goal_Disable_Gun" },
@@ -68,7 +76,7 @@ namespace Archipelago
         public static Inclusion PrawnState = Inclusion.Included;
         public static Inclusion CyclopsState = Inclusion.Included;
         public static bool IgnoreRadiation = false;
-        public static bool CanSlipThrough = false;
+        public static SlipType CanSlipThrough = SlipType.None;
         public static bool FreeSamples;
         public static bool Silent = false;
         public static Thread TrackerProcessing;
@@ -342,7 +350,8 @@ namespace Archipelago
             }
             if (loginSuccess.SlotData.TryGetValue("can_slip_through", out var can_slip_through))
             {
-                CanSlipThrough = Convert.ToInt32(can_slip_through) > 0;
+                if (Enum.TryParse(can_slip_through.ToString(), true, out SlipType really_slip))
+                CanSlipThrough = really_slip;
                 Debug.Log("Can Slip Through: " + CanSlipThrough);
             }
             if (loginSuccess.SlotData.TryGetValue("ignore_radiation", out var ignore_radiation))

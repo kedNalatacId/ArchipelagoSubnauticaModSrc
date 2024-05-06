@@ -493,9 +493,8 @@ namespace Archipelago
     }
 
 
-    /* WIP -- Need to set the text for this, and change the icon.
-        It's not a problem that it only shows up if the recipe is unlocked (game feature, unrelated).
-    */
+    /* The next 3x patches graft the Cyclops Shield Module onto
+       the Moonpool Fabricator if the goal is launch but the Cyclops is not in game */
     [HarmonyPatch(typeof(CraftTree))]
     [HarmonyPatch("SeamothUpgradesScheme")]
     internal class MoonpoolFabricator
@@ -509,7 +508,7 @@ namespace Archipelago
             }
 
             // We only need to run this if the Cyclops isn't in game and we're trying to goal
-            if (APState.CyclopsState != APState.Inclusion.Excluded && APState.Goal == "launch")
+            if (APState.CyclopsState != APState.Inclusion.Excluded || APState.Goal != "launch")
             {
                 return true;
             }
@@ -556,27 +555,41 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool RewriteCraftNodeText(ref string __result, string key)
         {
+            if (string.IsNullOrEmpty(key))
+            {
+                return true;
+            }
+
+            // This is our own made-up string, it won't match anything else.
+            if (key == "SeamothUpgradesMenu_CyclopsModules")
+            {
+                // Use a built-in replacement so it's translated properly for us
+                // comes out as "Cyclops Upgrades" (there is no "Cyclops modules" translated string)
+                __result = Language.main.Get("TechCategoryCyclopsUpgrades");
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(SpriteManager))]
+    [HarmonyPatch("Get")]
+    [HarmonyPatch(new Type[] { typeof(SpriteManager.Group), typeof(string) })]
+    internal class MoonpoolFabricator_CraftNodeIcon
+    {
+        [HarmonyPrefix]
+        public static bool RewriteCraftNodeIcon(ref Atlas.Sprite __result, SpriteManager.Group group, string name)
+        {
             if (APState.state != APState.State.InGame)
             {
                 return true;
             }
 
-            // We only need to run this if the Cyclops isn't in game and we're trying to goal
-            if (APState.CyclopsState != APState.Inclusion.Excluded && APState.Goal == "launch")
+            // our made-up string, which otherwise returns the default (question-mark) icon
+            if (name == "SeamothUpgrades_CyclopsModules")
             {
-                return true;
-            }
-
-            if (string.IsNullOrEmpty(key))
-            {
-                return true;
-            }
-            // This is our own made-up string, it doesn't technically match anything.
-            if (key == "SeamothUpgradesMenu_CyclopsModules")
-            {
-                // Use a built-in replacement so it's translated properly for us
-                // comes out as "Cyclops Upgrades"
-                __result = Language.main.Get("TechCategoryCyclopsUpgrades");
+                __result = SpriteManager.Get(TechType.Cyclops);
                 return false;
             }
 
