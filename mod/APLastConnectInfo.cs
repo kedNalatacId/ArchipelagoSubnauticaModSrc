@@ -7,6 +7,7 @@ namespace Archipelago
     public class APLastConnectInfo
     {
         public string host_name;
+        public string game_name;
         public string slot_name;
         public string password;
 
@@ -14,7 +15,7 @@ namespace Archipelago
         {
             get => host_name != "" && slot_name != "";
         }
-        
+
         public static APLastConnectInfo LoadFromFile(string path)
         {
             if (File.Exists(path))

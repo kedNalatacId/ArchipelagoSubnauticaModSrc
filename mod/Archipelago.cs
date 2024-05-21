@@ -6,10 +6,12 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.UI;
 using Archipelago.MultiClient.Net.Packets;
 using System.Text;
 using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Newtonsoft.Json;
+using TMPro;
 using Debug = UnityEngine.Debug;
 using File = System.IO.File;
 using Object = UnityEngine.Object;
@@ -44,18 +46,21 @@ namespace Archipelago
 
             if ((APState.Session == null || !APState.Authenticated) && APState.state == APState.State.Menu)
             {
-                GUI.Label(new Rect(16, 36, 150, 20), "Host: ");
-                GUI.Label(new Rect(16, 56, 150, 20), "PlayerName: ");
-                GUI.Label(new Rect(16, 76, 150, 20), "Password: ");
+                GUI.Label(new Rect(16, 36, 100, 20), "Host: ");
+                GUI.Label(new Rect(16, 56, 100, 20), "PlayerName: ");
+                GUI.Label(new Rect(16, 76, 100, 20), "Password: ");
+                GUI.Label(new Rect(16, 96, 100, 20), "Game Name: ");
 
                 bool submit = Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return;
 
-                APState.ServerConnectInfo.host_name = GUI.TextField(new Rect(150 + 16 + 8, 36, 150, 20),
+                APState.ServerConnectInfo.host_name = GUI.TextField(new Rect(100 + 16 + 8, 36, 150, 20),
                     APState.ServerConnectInfo.host_name);
-                APState.ServerConnectInfo.slot_name = GUI.TextField(new Rect(150 + 16 + 8, 56, 150, 20),
+                APState.ServerConnectInfo.slot_name = GUI.TextField(new Rect(100 + 16 + 8, 56, 150, 20),
                     APState.ServerConnectInfo.slot_name);
-                APState.ServerConnectInfo.password = GUI.TextField(new Rect(150 + 16 + 8, 76, 150, 20),
+                APState.ServerConnectInfo.password = GUI.TextField(new Rect(100 + 16 + 8, 76, 150, 20),
                     APState.ServerConnectInfo.password);
+                APState.ServerConnectInfo.game_name = GUI.TextField(new Rect(100 + 16 + 8, 96, 150, 20),
+                    APState.ServerConnectInfo.game_name);
 
                 if (submit && Event.current.type == EventType.KeyDown)
                 {
@@ -63,12 +68,12 @@ namespace Archipelago
                     submit = false;
                 }
 
-                if (GUI.Button(new Rect(16, 96, 100, 20), "Cancel"))
+                if (GUI.Button(new Rect(16, 120, 100, 20), "Cancel"))
                 {
                     APState.state = APState.State.Cancelled;
                     return;
                 }
-                if ((GUI.Button(new Rect(136, 96, 100, 20), "Connect") || submit) && APState.ServerConnectInfo.Valid)
+                if ((GUI.Button(new Rect(136, 120, 100, 20), "Connect") || submit) && APState.ServerConnectInfo.Valid)
                 {
                     APState.Connect();
                 }
@@ -718,6 +723,36 @@ namespace Archipelago
                         Debug.Log("archipelago_item_index error: " + e.Message);
                     }
                 }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(MainMenuLoadPanel))]
+    [HarmonyPatch("UpdateLoadButtonState")]
+    internal class MainMenuPanel_ButtonName
+    {
+        [HarmonyPostfix]
+        private static void MainMenuPanel_ButtonAddName(MainMenuLoadButton lb)
+        {
+            /* TODO:
+               There are 4x possible error strings it could be set to; make sure the below
+               string isn't set to any of those error strings before over-riding it.
+            */
+            string txt = lb.saveGameLengthText.text;
+
+            // Get name from archipelago text
+            var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
+            var rawPath = storage.GetType().GetField("savePath",
+                BindingFlags.NonPublic | BindingFlags.Instance).GetValue(storage);
+            var saveConnectInfo = APLastConnectInfo.LoadFromFile(rawPath + "/" + lb.saveGame + "/archipelago.json");
+            if (saveConnectInfo is null)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(saveConnectInfo.game_name))
+            {
+                lb.saveGameLengthText.text = saveConnectInfo.game_name;
             }
         }
     }

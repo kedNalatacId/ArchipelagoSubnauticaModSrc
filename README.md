@@ -34,3 +34,4 @@ Noted differences:
     - Fixed tracking for 2x weird spots in the Aurora when "Can Slip Through" is true
 - not here (in python), interior growbed (as a separate item)
 - flora (plant scanning; requires updating the encyclopedia.json)
+- Allow naming games (makes it easier to play multiple games at once)
