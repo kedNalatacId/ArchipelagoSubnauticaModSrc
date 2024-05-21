@@ -882,6 +882,7 @@ namespace Archipelago
             switch (__instance.techType)
             {
                 case TechType.RadiationSuit:
+                case TechType.PrecursorIonPowerCell:
                 case TechType.BaseLargeRoom:
                     return false;
                 default:
