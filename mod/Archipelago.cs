@@ -734,11 +734,22 @@ namespace Archipelago
         [HarmonyPostfix]
         private static void MainMenuPanel_ButtonAddName(MainMenuLoadButton lb)
         {
-            /* TODO:
-               There are 4x possible error strings it could be set to; make sure the below
-               string isn't set to any of those error strings before over-riding it.
-            */
             string txt = lb.saveGameLengthText.text;
+
+            // Check that we're not overloading something important
+            string[] error_strings = new string[] {
+                "DamagedSavedGame",
+                "IncompatibleChangesetSavedGame",
+                "SlotEmpty"
+            };
+            foreach (string errstr in error_strings)
+            {
+                // It'll be surrounded by color text, so we can't check for equivalence
+                if (txt.Contains(Language.main.Get(errstr)))
+                {
+                    return;
+                }
+            }
 
             // Get name from archipelago text
             var storage = PlatformUtils.main.GetServices().GetUserStorage() as UserStoragePC;
@@ -865,7 +876,6 @@ namespace Archipelago
             }
         }
     }
-
 
     [HarmonyPatch(typeof(Story.UnlockBlueprintData))]
     [HarmonyPatch("Trigger")]
