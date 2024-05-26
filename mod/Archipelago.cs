@@ -27,6 +27,7 @@ namespace Archipelago
             {
                 return;
             }
+
             string ap_ver = "Archipelago v" + APState.AP_VERSION[0] + "." + APState.AP_VERSION[1] + "." + APState.AP_VERSION[2];
             if (APState.Session != null)
             {
@@ -126,16 +127,26 @@ namespace Archipelago
                     }
                     else
                     {
-                        GUI.Label(new Rect(16, y_pos + 20, 1000, 22),
-                            // "Swim Rule: " + APState.SwimRule
-                            "Current Logical Depth: " + (TrackerThread.LogicSwimDepth + TrackerThread.LogicItemDepth + TrackerThread.LogicVehicleDepth)
-                            + " = " + TrackerThread.LogicSwimDepth + " (Swim) + " + TrackerThread.LogicItemDepth + " (items) + "
-                            + TrackerThread.LogicVehicleDepth + " (" + TrackerThread.LogicVehicle + ")");
+                        string depth_string =
+                            "Current Logical Depth: "
+                            + (TrackerThread.LogicSwimDepth + TrackerThread.LogicItemDepth + TrackerThread.LogicVehicleDepth)
+                            + " = "
+                            + TrackerThread.LogicSwimDepth + " (Swim) + ";
+
+                        if (APState.ConsiderItems)
+                        {
+                            depth_string += TrackerThread.LogicItemDepth + " (items) + ";
+                        }
+
+                        depth_string += TrackerThread.LogicVehicleDepth
+                            + " (" + TrackerThread.LogicVehicle + ")";
+
+                        GUI.Label(new Rect(16, y_pos + 20, 1000, 22), depth_string);
                     }
                 }
                 if (!APState.TrackerProcessing.IsAlive)
                 {
-                    GUI.Label(new Rect(16, 136, 1000, 22),
+                    GUI.Label(new Rect(16, 76, 1000, 22),
                         "Error: Tracker Thread died. Tracker will not update.");
                 }
             }
@@ -586,7 +597,7 @@ namespace Archipelago
         [HarmonyPrefix]
         public static bool RewriteCraftNodeIcon(ref Atlas.Sprite __result, SpriteManager.Group group, string name)
         {
-            if (APState.state != APState.State.InGame)
+            if (string.IsNullOrEmpty(name))
             {
                 return true;
             }
@@ -594,6 +605,7 @@ namespace Archipelago
             // our made-up string, which otherwise returns the default (question-mark) icon
             if (name == "SeamothUpgrades_CyclopsModules")
             {
+                // This sprite comes from the vehicle fabricator
                 __result = SpriteManager.Get(TechType.Cyclops);
                 return false;
             }

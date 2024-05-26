@@ -28,6 +28,7 @@ namespace Archipelago
         public static bool IncludeSeamoth     = true;
         public static bool IncludePrawn       = true;
         public static bool IncludeCyclops     = true;
+        public static bool KnownTechHasLoaded = false;
         public static string LogicVehicle     = "Vehicle";
         public static long creatureScanCutOff = 33999;
         public static long plantScanCutOff    = 34099;
@@ -59,8 +60,8 @@ namespace Archipelago
             // Gating items; now with less gating
             foreach (var logic in ArchipelagoData.LogicDict)
             {
-                // Don't check these here (they're checked above)
-                if (locID == 33107 || locID == 33108)
+                // Don't check these magic locIDs here (they're checked above); only check locations that are in this specific logic section
+                if (locID == 33107 || locID == 33108 || !logic.Value.Contains(locID))
                 {
                     continue;
                 }
@@ -91,6 +92,7 @@ namespace Archipelago
                     if (!KnownTech.Contains(logic.Key))
                     {
                         // Laser Cutter is the opposite; only 2 spots "can slip", no others can
+                        // NOTE: this is a frame perfect trick? (don't try it)
                         if (locID == 33025 || locID == 33026)
                         {
                             if (CanSlipThrough != APState.SlipType.LaserCutter && CanSlipThrough != APState.SlipType.Both)
@@ -140,7 +142,7 @@ namespace Archipelago
             IncludeCyclops      = APState.CyclopsState == APState.Inclusion.Included;
         }
 
-        public static bool UpdateRadiationSuit()
+        public static bool GetRadiationSuit()
         {
             return KnownTech.Contains(TechType.RadiationSuit);
         }
@@ -156,7 +158,7 @@ namespace Archipelago
             return coreDepth;
         }
 
-        public static int UpdateLogicDepth()
+        public static int GetLogicDepth()
         {
             int itemdepth = 0;
             if (! ItemsRelevant)
@@ -268,16 +270,14 @@ namespace Archipelago
             return depth;
         }
 
-        public static void UpdateVehicleDepth()
+        public static (string, int) GetVehicleDepth()
         {
             int maxDepth = 0;
             string logicVehicleName = "Vehicle";
 
             if (!KnownTech.Contains(TechType.Constructor))
             {
-                LogicVehicleDepth = 0;
-                LogicVehicle = logicVehicleName;
-                return;
+                return (logicVehicleName, maxDepth);
             }
 
             bool hasModStation = KnownTech.Contains(TechType.Workbench);
@@ -305,18 +305,17 @@ namespace Archipelago
                 maxDepth = candidateDepth;
             }
 
-            LogicVehicle = logicVehicleName;
-            LogicVehicleDepth = maxDepth;
+            return (logicVehicleName, maxDepth);
         }
 
-        public static void UpdateAdvancedDepth()
+        public static (string, int) GetAdvancedDepth()
         {
             int maxDepth = 0;
             string logicVehicleName = "Vehicle";
 
             if (KnownTech.Contains(TechType.FarmingTray))
             {
-                maxDepth += 500;
+                maxDepth += 200;
                 logicVehicleName = "Advanced";
             }
 
@@ -348,8 +347,7 @@ namespace Archipelago
                 maxDepth += 1500;
             }
 
-            LogicVehicle = logicVehicleName;
-            LogicVehicleDepth = maxDepth;
+            return (logicVehicleName, maxDepth);
         }
 
         public static void UpdateTrackedLocation()
@@ -468,13 +466,42 @@ namespace Archipelago
             }
         }
 
+        // As a more savvy check to see if we're ready to start tracking,
+        // make sure the KnownTech object is loaded.
+        public static bool KnownTechLoaded()
+        {
+            try
+            {
+                // Doesn't matter what we check for here, we don't care about the results
+                KnownTech.Contains(TechType.Seaglide);
+            }
+            catch (NullReferenceException)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         public static void DoWork()
         {
             while (true)
             {
                 Thread.Sleep(150);
 
-                if (APState.state != APState.State.InGame || APState.Session == null || Player.main == null)
+                if (!KnownTechHasLoaded && KnownTechLoaded())
+                {
+                    KnownTechHasLoaded = true;
+                }
+                // reset clause so we don't kill the tracker thread jumping between games
+                if (KnownTechHasLoaded && APState.state != APState.State.InGame)
+                {
+                    KnownTechHasLoaded = false;
+                }
+
+                if (
+                    APState.state != APState.State.InGame || APState.Session == null
+                    || Player.main == null || !KnownTechHasLoaded)
                 {
                     APState.TrackedFishCount = 0;
                     APState.TrackedPlantCount = 0;
@@ -488,8 +515,8 @@ namespace Archipelago
                     PrimeDepthSystem();
                 }
 
-                HasRadiationSuit = UpdateRadiationSuit();
-                LogicItemDepth = UpdateLogicDepth();
+                HasRadiationSuit = GetRadiationSuit();
+                LogicItemDepth = GetLogicDepth();
 
                 bool seamothCanMakeIt = false;
                 if (IncludeSeamoth && getTheoreticalLogicDepth(900) > 1444)
@@ -499,11 +526,11 @@ namespace Archipelago
 
                 if (!seamothCanMakeIt && !IncludePrawn && !IncludeCyclops)
                 {
-                    UpdateAdvancedDepth();
+                    (LogicVehicle, LogicVehicleDepth) = GetAdvancedDepth();
                 }
                 else
                 {
-                    UpdateVehicleDepth();
+                    (LogicVehicle, LogicVehicleDepth) = GetVehicleDepth();
                 }
 
                 UpdateTrackedLocation();
