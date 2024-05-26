@@ -35,3 +35,4 @@ Noted differences:
 - not here (in python), interior growbed (as a separate item)
 - flora (plant scanning; requires updating the encyclopedia.json)
 - Allow naming games (makes it easier to play multiple games at once)
+- Don't learn the Ion Power Cell from the Inactive Lava Zone (thanks to Berserker)
