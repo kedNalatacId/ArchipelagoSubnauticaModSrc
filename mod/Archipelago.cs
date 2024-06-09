@@ -575,6 +575,45 @@ namespace Archipelago
             APState.ArchipelagoUI.RegisterCmds();
         }
     }
+
+    /*[HarmonyPatch(typeof(UserStoragePC), "GetSaveFilePath")]
+    internal class GetSaveFilePathPatch
+    {
+        [HarmonyPrefix]
+        private static bool GetSaveFilePathAP(string savePath, string containerName, string relativePath, ref string __result)
+        {
+            __result = Path.Combine(Path.Combine(savePath, containerName), relativePath);
+            APState.Logger.LogInfo("savePath:" + savePath);
+            APState.Logger.LogInfo("containerName:" + containerName);
+            APState.Logger.LogInfo("relativePath:" + relativePath);
+            APState.Logger.LogInfo("__result:" + __result);
+            return true;
+        }
+    }*/
+    
+    [HarmonyPatch(typeof(UserStoragePC), "InitializeAsyncImpl")]
+    internal class PlatformInitPatch
+    {
+
+        [HarmonyPrefix]
+        public static void InitializeOverride(object owner, object state)
+        {
+            APState.Logger.LogInfo("Begin Patching savePath.");
+            var storage = owner as UserStoragePC;
+            var rawPath = storage.GetType().GetField("savePath",
+                BindingFlags.NonPublic | BindingFlags.Instance).GetValue(storage) as string;
+
+            APState.Logger.LogInfo($"Original SavePath: " + rawPath);
+            rawPath = Platform.IO.Path.Combine(rawPath, "ArchipelagoSaves");
+            if (rawPath != null)
+            {
+                storage.GetType().GetField("savePath",
+                    BindingFlags.NonPublic | BindingFlags.Instance)?.SetValue(storage, rawPath);
+                APState.Logger.LogInfo($"Changed SavePath: " + rawPath);
+                Directory.CreateDirectory(rawPath);
+            }
+        }
+    }
     
     [HarmonyPatch(typeof(SaveLoadManager.GameInfo))]
     [HarmonyPatch("SaveIntoCurrentSlot")]
@@ -683,7 +722,7 @@ namespace Archipelago
     [HarmonyPatch("Update")]
     internal class MainGameControllerUpdatePatch
     {
-        private static bool IsSafeToUnlock()
+        public static bool IsSafeToUnlock()
         {
             if (!Player.main.playerController.inputEnabled)
             {

@@ -10,6 +10,7 @@ using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.MessageLog.Messages;
 using Archipelago.MultiClient.Net.Packets;
+using BepInEx.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -61,6 +62,7 @@ namespace Archipelago
         public static string TrackedLocationName;
         public static float TrackedDistance;
         public static float TrackedAngle;
+        public static ManualLogSource Logger;
 
         public static ArchipelagoSession Session;
         public static ArchipelagoUI ArchipelagoUI = null;

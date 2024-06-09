@@ -20,6 +20,8 @@ namespace Archipelago
         {
             var harmony = new Harmony("Archipelago");
             ArchipelagoData.Init();
+            APState.Logger = Logger;
+            
             // launch tracker thread
             APState.TrackerProcessing = new Thread(TrackerThread.DoWork);
             APState.TrackerProcessing.IsBackground = true;
