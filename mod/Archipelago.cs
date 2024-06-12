@@ -870,6 +870,8 @@ namespace Archipelago
             {
                 case TechType.RadiationSuit:
                 case TechType.BaseLargeRoom:
+                case TechType.PrecursorIonBattery:
+                case TechType.PrecursorIonPowerCell:
                     return false;
                 default:
                     return true;
