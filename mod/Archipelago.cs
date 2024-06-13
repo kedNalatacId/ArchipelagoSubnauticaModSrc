@@ -942,7 +942,6 @@ namespace Archipelago
             switch (__instance.techType)
             {
                 case TechType.RadiationSuit:
-                case TechType.PrecursorIonPowerCell:
                 case TechType.BaseLargeRoom:
                 case TechType.PrecursorIonBattery:
                 case TechType.PrecursorIonPowerCell:
