@@ -15,7 +15,6 @@ Noted differences:
     - Otherwise the same logic RE: ultra glide fins and ultra high capacity tanks
 - SeaglideDepth is a range from 100-400
     - defaults to 200m (old default)
-- "Consider Exterior Growbed" adds (currently) 500m depth; iykyk
 - "PreSeaglideDistance" is a range from 600m to edge of map (2500m)
     - Shortening the range puts the seaglide very early in single-player mode
     - Anything outside this range is considered out of logic until the seaglide, seamoth, or cyclops is crafted
@@ -35,4 +34,6 @@ Noted differences:
 - not here (in python), interior growbed (as a separate item)
 - flora (plant scanning; requires updating the encyclopedia.json)
 - Allow naming games (makes it easier to play multiple games at once)
-- Don't learn the Ion Power Cell from the Inactive Lava Zone (thanks to Berserker)
+    - Archipelago games will also have "AP: " pre-pended to their style
+    - e.g. `AP: Creative` or `AP: Survival`
+- Don't learn the Ion Battery or Ion Power Cell from the Inactive Lava Zone (thanks to Berserker)

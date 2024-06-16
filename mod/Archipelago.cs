@@ -773,6 +773,9 @@ namespace Archipelago
                 return;
             }
 
+            // Add "AP" to the mode string (make it obvious)
+            lb.saveGameModeText.text = "AP: " + lb.saveGameModeText.text;
+
             if (!string.IsNullOrEmpty(saveConnectInfo.game_name))
             {
                 lb.saveGameLengthText.text = saveConnectInfo.game_name;
