@@ -769,13 +769,13 @@ namespace Archipelago
             if (APState.message_dequeue_timeout <= 0.0f)
             {
                 // We only do x at a time. To not crowd the on screen log/events too fast
-                List<string> to_process = new List<string>();
-                while (to_process.Count < dequeueCount && APState.message_queue.Count > 0)
+                List<string> toProcess = new List<string>();
+                while (toProcess.Count < dequeueCount && APState.message_queue.Count > 0)
                 {
-                    to_process.Add(APState.message_queue[0]);
+                    toProcess.Add(APState.message_queue[0]);
                     APState.message_queue.RemoveAt(0);
                 }
-                foreach (var message in to_process)
+                foreach (var message in toProcess)
                 {
                     ErrorMessage.AddMessage(message);
                 }
@@ -788,7 +788,7 @@ namespace Archipelago
                 if (APState.ServerConnectInfo.index < APState.Session.Items.AllItemsReceived.Count)
                 {
                     APState.Unlock(APState.Session.Items.AllItemsReceived[
-                        Convert.ToInt32(APState.ServerConnectInfo.index)].Item, APState.ServerConnectInfo.index);
+                        Convert.ToInt32(APState.ServerConnectInfo.index)].ItemId, APState.ServerConnectInfo.index);
                     APState.ServerConnectInfo.index++;
                     // We only do x at a time. To not crowd the on screen log/events too fast
                     APState.unlock_dequeue_timeout = dequeueTime;

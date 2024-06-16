@@ -39,7 +39,7 @@ namespace Archipelago
             { "infected", "Infection_Progress4" },
         };
         
-        public static int[] AP_VERSION = new int[] { 0, 4, 1 };
+        public static int[] AP_VERSION = new int[] { 0, 5, 0 };
         public static APConnectInfo ServerConnectInfo = new APConnectInfo();
         public static DeathLinkService DeathLinkService = null;
         public static bool DeathLinkKilling = false; // indicates player is currently getting DeathLinked
@@ -368,7 +368,7 @@ namespace Archipelago
             var done = new HashSet<long>();
             for (int i = 0; i < Session.Items.AllItemsReceived.Count; i++)
             {
-                var itemID = Session.Items.AllItemsReceived[i].Item;
+                var itemID = Session.Items.AllItemsReceived[i].ItemId;
                 if (ArchipelagoData.ItemCodeToItemType[itemID] == ArchipelagoItemType.Resource || !done.Contains(itemID))
                 {
                     Unlock(itemID, i);
@@ -431,7 +431,7 @@ namespace Archipelago
 
                 if (entry != null)
                 {
-                    int newCount = Session.Items.AllItemsReceived.Count(networkItem => networkItem.Item == apItemID);
+                    int newCount = Session.Items.AllItemsReceived.Count(networkItem => networkItem.ItemId == apItemID);
                     if (newCount == entry.unlocked)
                     {
                         return;
