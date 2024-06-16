@@ -598,11 +598,15 @@ namespace Archipelago
         [HarmonyPrefix]
         public static void InitializeOverride(object owner, object state)
         {
-            APState.Logger.LogInfo("Begin Patching savePath.");
+            
             var storage = owner as UserStoragePC;
             var rawPath = storage.GetType().GetField("savePath",
                 BindingFlags.NonPublic | BindingFlags.Instance).GetValue(storage) as string;
-
+            if (rawPath.Contains("ArchipelagoSaves"))
+            {
+                // feels kind of dirty, but so does initialize running multiple times.
+                return;
+            }
             APState.Logger.LogInfo($"Original SavePath: " + rawPath);
             rawPath = Platform.IO.Path.Combine(rawPath, "ArchipelagoSaves");
             if (rawPath != null)
