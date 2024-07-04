@@ -214,16 +214,6 @@ namespace Archipelago
             LogicVehicleDepth = maxDepth;
         }
         
-        // Debug.Log doesn't want to work for me in the thread, despite documentation saying it is threadsafe.
-        // So this is the solution for now, and probably ever.
-        public static void Log(string text)
-        {
-            using (StreamWriter sw = File.AppendText("TrackerThread.txt"))
-            {
-                sw.WriteLine(text);
-            }
-        }
-        
         public static void DoWork()
         {
             float closestDist;

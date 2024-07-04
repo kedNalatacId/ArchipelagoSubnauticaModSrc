@@ -230,7 +230,7 @@ namespace Archipelago
                 }
                 else
                 {
-                    Debug.LogError("Could not write most recent connect info to file.");
+                    Logging.LogError("Could not write most recent connect info to file.");
                 }
                 
                 Authenticated = true;
@@ -254,7 +254,7 @@ namespace Archipelago
                 }
                     
                 
-                Debug.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData));
+                Logging.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData), ingame:false);
                 ServerConnectInfo.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;
                 set_deathlink();
 
@@ -262,23 +262,21 @@ namespace Archipelago
             else if (loginResult is LoginFailure loginFailure)
             {
                 Authenticated = false;
-                Debug.LogError(String.Join("\n", loginFailure.Errors));
+                Logging.LogError("Connection Error: " + String.Join("\n", loginFailure.Errors));
                 Session = null;
-                ErrorMessage.AddMessage("Connection Error: " + String.Join("\n", loginFailure.Errors));
             }
             // all fragments
             TechFragmentsToDestroy = new HashSet<TechType>(APState.tech_fragments);
             // remove vanilla so it's scannable
             TechFragmentsToDestroy.ExceptWith(vanillaTech);
-            Debug.LogError("Preventing scanning of: " + string.Join(", ", TechFragmentsToDestroy));
-            Debug.LogError("Allowing scanning of: " + string.Join(", ", vanillaTech));
+            Logging.LogDebug("Preventing scanning of: " + string.Join(", ", TechFragmentsToDestroy));
+            Logging.LogDebug("Allowing scanning of: " + string.Join(", ", vanillaTech));
             return loginResult.Successful;
         }
         
         static void Session_SocketClosed(string reason)
         {
-            message_queue.Add("Connection to Archipelago lost: " + reason);
-            Debug.LogError("Connection to Archipelago lost: " + reason);
+            Logging.LogError("Connection to Archipelago lost: " + reason);
             Disconnect();
         }
         static void Session_MessageReceived(LogMessage message)
@@ -290,8 +288,8 @@ namespace Archipelago
         }
         static void Session_ErrorReceived(Exception e, string message)
         {
-            Debug.LogError(message);
-            if (e != null) Debug.LogError(e.ToString());
+            Logging.LogError(message);
+            if (e != null) Logging.LogError(e.ToString());
             Disconnect();
         }
 
@@ -310,7 +308,7 @@ namespace Archipelago
         {
             if (!(bool) (UnityEngine.Object) Player.main.liveMixin)
                 return;
-            Debug.Log("Received DeathLink");
+            Logging.LogDebug("Received DeathLink");
             DeathLinkKilling = true;
             Player.main.liveMixin.Kill();
             message_queue.Add(deathLink.Cause);
@@ -364,7 +362,7 @@ namespace Archipelago
 
         public static void Resync()
         {
-            Debug.Log("Running Item resync with " + Session.Items.AllItemsReceived.Count + " items.");
+            Logging.LogDebug("Running Item resync with " + Session.Items.AllItemsReceived.Count + " items.");
             var done = new HashSet<long>();
             for (int i = 0; i < Session.Items.AllItemsReceived.Count; i++)
             {
@@ -505,7 +503,7 @@ namespace Archipelago
             GameObject gameObject = prefabResult.Get();
             if (gameObject == null)
             {
-                Debug.LogError("Object " + techType + " failed to be created.");
+                Logging.LogError("Object " + techType + " failed to be created.", ingame:false);
                 yield break;
             }
             // in case it can't be picked up, dump it right in front of player for obvious problem.
@@ -517,7 +515,7 @@ namespace Archipelago
             Pickupable pickupable = gameObject.GetComponent<Pickupable>();
             if (pickupable == null)
             {
-                Debug.LogError("Object " + techType + " was not pickupable.");
+                Logging.LogError("Object " + techType + " was not pickupable.", ingame:false);
                 UnityEngine.Object.Destroy(gameObject);
             }
             else

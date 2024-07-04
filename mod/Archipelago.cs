@@ -57,7 +57,7 @@ namespace Archipelago
             {
                 if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.C))
                 {
-                    Debug.Log("INSPECT GAME OBJECT: " + mouse_target_desc);
+                    Logging.Log("INSPECT GAME OBJECT: " + mouse_target_desc, ingame:false);
                     string id = mouse_target_desc.Split(new char[] { ':' })[0];
                     GUIUtility.systemCopyBuffer = id;
                     copied_fade = 1.0f;
@@ -69,6 +69,7 @@ namespace Archipelago
 
         void OnGUI()
         {
+            Logging.TryUpdateLog();
 #if DEBUG
             GUI.Box(new Rect(0, 0, Screen.width, 120), "");
 #endif
@@ -305,8 +306,7 @@ namespace Archipelago
             }
             else
             {
-                Debug.Log("Can only 'say' while connected to Archipelago.");
-                ErrorMessage.AddMessage("Can only 'say' while connected to Archipelago.");
+                Logging.Log("Can only 'say' while connected to Archipelago.");
             }
         }
         private void OnConsoleCommand_silent(NotificationCenter.Notification n)
@@ -315,14 +315,12 @@ namespace Archipelago
             
             if (APState.Silent)
             {
-                Debug.Log("Muted Archipelago chat.");
-                ErrorMessage.AddMessage("Muted Archipelago chat.");
+                Logging.Log("Muted Archipelago chat.");
                 APState.message_queue.Clear();
             }
             else
             {
-                Debug.Log("Enabled Archipelago chat.");
-                ErrorMessage.AddMessage("Enabled Archipelago chat.");
+                Logging.Log("Enabled Archipelago chat.");
             }
         }
         private void OnConsoleCommand_tracker(NotificationCenter.Notification n)
@@ -331,18 +329,15 @@ namespace Archipelago
             {
                 case TrackerMode.Disabled:
                     APState.TrackedMode = TrackerMode.Closest;
-                    Debug.Log("Tracking Locations by proximity.");
-                    ErrorMessage.AddMessage("Tracking Locations by proximity.");
+                    Logging.Log("Tracking Locations by proximity.");
                     break;
                 case TrackerMode.Closest:
                     APState.TrackedMode = TrackerMode.Logical;
-                    Debug.Log("Tracking Locations by proximity and filtering by logic");
-                    ErrorMessage.AddMessage("Tracking Locations by proximity and filtering by logic");
+                    Logging.Log("Tracking Locations by proximity and filtering by logic");
                     break;
                 case TrackerMode.Logical:
                     APState.TrackedMode = TrackerMode.Disabled;
-                    Debug.Log("Location tracking disabled.");
-                    ErrorMessage.AddMessage("Location tracking disabled.");
+                    Logging.Log("Location tracking disabled.");
                     break;
             }
         }
@@ -353,13 +348,11 @@ namespace Archipelago
             
             if (APState.ServerConnectInfo.death_link)
             {
-                Debug.Log("Enabled DeathLink.");
-                ErrorMessage.AddMessage("Enabled DeathLink.");
+                Logging.Log("Enabled DeathLink.");
             }
             else
             {
-                Debug.Log("Disabled DeathLink.");
-                ErrorMessage.AddMessage("Disabled DeathLink.");
+                Logging.Log("Disabled DeathLink.");
             }
         }
         
@@ -367,16 +360,13 @@ namespace Archipelago
         {
             if (APState.state == APState.State.InGame)
             {
-                Debug.Log("Beginning Item resync.");
-                ErrorMessage.AddMessage("Beginning Item resync.");
+                Logging.Log("Beginning Item resync.");
                 APState.Resync();
-                Debug.Log("Item resync completed.");
-                ErrorMessage.AddMessage("Item resync completed.");
+                Logging.Log("Item resync completed.");
             }
             else
             {
-                Debug.Log("Cannot resync in menu.");
-                ErrorMessage.AddMessage("Cannot resync in menu.");
+                Logging.Log("Cannot resync in menu.");
             }
         }
         
@@ -650,14 +640,10 @@ namespace Archipelago
                 using (StreamReader reader = new StreamReader(path))
                 {
                     APState.ServerConnectInfo = JsonConvert.DeserializeObject<APConnectInfo>(reader.ReadToEnd());
-                    
-                    if (APState.Connect() && APState.ServerConnectInfo.@checked != null)
+                    var connected = APState.Connect();
+                    if (connected && APState.ServerConnectInfo.@checked != null)
                     {
                         APState.Session.Locations.CompleteLocationChecks(APState.ServerConnectInfo.@checked.ToArray());
-                    }
-                    else
-                    {
-                        ErrorMessage.AddError("Null Checked");
                     }
                 }
             }
@@ -715,7 +701,7 @@ namespace Archipelago
                     }
                     catch (Exception e)
                     {
-                        Debug.Log("archipelago_item_index error: " + e.Message);
+                        Logging.LogError("archipelago_item_index error: " + e.Message, ingame:false);
                     }
                 }
             }

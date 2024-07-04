@@ -19,6 +19,7 @@ namespace Archipelago
         private void Awake()
         {
             var harmony = new Harmony("Archipelago");
+            Logging.Initialize();
             ArchipelagoData.Init();
             APState.Logger = Logger;
             
@@ -32,7 +33,8 @@ namespace Archipelago
             {
                 Zero = true;
             }
-            Debug.Log("Archipelago: Below Zero: " + Zero);
+            Logging.Log("Archipelago: Below Zero: " + Zero, ingame:false);
+
             // Universal Patches
             harmony.PatchAll(Assembly.GetExecutingAssembly());
             // Manual Patching based on game 
@@ -48,9 +50,9 @@ namespace Archipelago
             harmony.Patch(typeof(PDAEncyclopedia).GetMethod("Add", BindingFlags.NonPublic | BindingFlags.Static),
                 postfix: new HarmonyMethod(typeof(CustomPDA).GetMethod("Add")));
             
-            Logger.LogInfo($"Plugin Archipelago (" + Version + ") for Server (" 
-                           + APState.AP_VERSION[0] + "." + APState.AP_VERSION[1] + "." + APState.AP_VERSION[2] + 
-                           ") is loaded!");
+            Logging.Log($"Plugin Archipelago (" + Version + ") for Server (" 
+                        + APState.AP_VERSION[0] + "." + APState.AP_VERSION[1] + "." + APState.AP_VERSION[2] + 
+                        ") is loaded!", ingame:false);
         }
 
         private void PatchSubnautica(Harmony harmony)
