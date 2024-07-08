@@ -597,13 +597,13 @@ namespace Archipelago
                 // feels kind of dirty, but so does initialize running multiple times.
                 return;
             }
-            APState.Logger.LogInfo($"Original SavePath: " + rawPath);
+            Logging.Log($"Original SavePath: " + rawPath, ingame:false);
             rawPath = Platform.IO.Path.Combine(rawPath, "ArchipelagoSaves");
             if (rawPath != null)
             {
                 storage.GetType().GetField("savePath",
                     BindingFlags.NonPublic | BindingFlags.Instance)?.SetValue(storage, rawPath);
-                APState.Logger.LogInfo($"Changed SavePath: " + rawPath);
+                Logging.Log($"Changed SavePath: " + rawPath, ingame:false);
                 Directory.CreateDirectory(rawPath);
             }
         }

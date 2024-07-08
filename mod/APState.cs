@@ -62,7 +62,6 @@ namespace Archipelago
         public static string TrackedLocationName;
         public static float TrackedDistance;
         public static float TrackedAngle;
-        public static ManualLogSource Logger;
 
         public static ArchipelagoSession Session;
         public static ArchipelagoUI ArchipelagoUI = null;

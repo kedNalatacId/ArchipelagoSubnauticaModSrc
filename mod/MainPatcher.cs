@@ -21,7 +21,6 @@ namespace Archipelago
             var harmony = new Harmony("Archipelago");
             Logging.Initialize();
             ArchipelagoData.Init();
-            APState.Logger = Logger;
             
             // launch tracker thread
             APState.TrackerProcessing = new Thread(TrackerThread.DoWork);
