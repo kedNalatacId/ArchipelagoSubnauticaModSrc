@@ -3,7 +3,6 @@ using System.Reflection;
 using System.Threading;
 using BepInEx;
 using HarmonyLib;
-using UnityEngine;
 
 namespace Archipelago
 {

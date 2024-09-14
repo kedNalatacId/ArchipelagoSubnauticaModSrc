@@ -10,7 +10,6 @@ using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.MessageLog.Messages;
 using Archipelago.MultiClient.Net.Packets;
-using BepInEx.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;

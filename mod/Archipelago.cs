@@ -10,7 +10,6 @@ using Archipelago.MultiClient.Net.Packets;
 using System.Text;
 using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Newtonsoft.Json;
-using Debug = UnityEngine.Debug;
 using File = System.IO.File;
 using Object = UnityEngine.Object;
 
@@ -817,6 +816,32 @@ namespace Archipelago
         }
     }
 
+    [HarmonyPatch(typeof(Player))]
+    [HarmonyPatch("Start")]
+    internal class PlayerStartPatch
+    {
+        [HarmonyPostfix]
+        public static void PatchPlayerOxygenTank(Player __instance)
+        {
+            Inventory.main.equipment.onEquip += EquipmentChanged;
+        }
+        private static void EquipmentChanged(string slot, InventoryItem item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            Oxygen component = item.item.GetComponent<Oxygen>();
+            if (component == null)
+            {
+                return;
+            }
+            // prevent cheating logic by swapping between oxygen tanks
+            component.RemoveOxygen(component.oxygenCapacity);
+        }
+    }
+    
 #if DEBUG
     [HarmonyPatch(typeof(GUIHand))]
     [HarmonyPatch("OnUpdate")]
