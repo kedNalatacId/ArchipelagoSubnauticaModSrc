@@ -92,6 +92,10 @@ namespace Archipelago
                         text += ", named " + APState.TrackedLocationName;
                         text += " (" + APState.TrackedDepth + "m)";
                     }
+                    else
+                    {
+                        text += ". No locations are currently in logic.";
+                    }
 
                     GUI.Label(new Rect(16, 36, 1000, 20), text);
                 }
@@ -1015,6 +1019,7 @@ namespace Archipelago
             return true;
         }
     }
+
     // When launching the rocket, send goal achieved to archipelago
     internal class LaunchRocket_SetLaunchStarted_Patch
     {

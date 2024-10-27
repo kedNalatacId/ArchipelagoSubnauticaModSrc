@@ -28,7 +28,6 @@ namespace Archipelago
         public static bool IncludeSeamoth     = true;
         public static bool IncludePrawn       = true;
         public static bool IncludeCyclops     = true;
-        public static bool KnownTechHasLoaded = false;
         public static string LogicVehicle     = "Vehicle";
         public static long creatureScanCutOff = 33999;
         public static long plantScanCutOff    = 34099;
@@ -168,9 +167,8 @@ namespace Archipelago
 
             bool hasModStation = KnownTech.Contains(TechType.Workbench);
 
-            if (KnownTech.Contains(TechType.Seaglide))
+            if (HasSeaglide)
             {
-                HasSeaglide = true;
                 itemdepth += SeaglideDepth;
                 // Ultra High Capacity Tank
                 if (hasModStation && KnownTech.Contains(TechType.HighCapacityTank))
@@ -468,12 +466,15 @@ namespace Archipelago
 
         // As a more savvy check to see if we're ready to start tracking,
         // make sure the KnownTech object is loaded.
+        // NOTE: this method has a side effect (sets HasSeaglide as a convenience)
         public static bool KnownTechLoaded()
         {
             try
             {
-                // Doesn't matter what we check for here, we don't care about the results
-                KnownTech.Contains(TechType.Seaglide);
+                // Doesn't matter what we check for here, we don't care about the results.
+                // OTOH, we need to know seaglide status for InLogic separately from item
+                // depth, so as a shortcut check it here since we'll always need it.
+                HasSeaglide = KnownTech.Contains(TechType.Seaglide);
             }
             catch (NullReferenceException)
             {
@@ -489,19 +490,11 @@ namespace Archipelago
             {
                 Thread.Sleep(150);
 
-                if (!KnownTechHasLoaded && KnownTechLoaded())
-                {
-                    KnownTechHasLoaded = true;
-                }
-                // reset clause so we don't kill the tracker thread jumping between games
-                if (KnownTechHasLoaded && APState.state != APState.State.InGame)
-                {
-                    KnownTechHasLoaded = false;
-                }
-
                 if (
-                    APState.state != APState.State.InGame || APState.Session == null
-                    || Player.main == null || !KnownTechHasLoaded)
+                    APState.state != APState.State.InGame
+                        || APState.Session == null
+                        || Player.main == null
+                        || !KnownTechLoaded())
                 {
                     APState.TrackedFishCount = 0;
                     APState.TrackedPlantCount = 0;
