@@ -286,7 +286,7 @@ namespace Archipelago
                     {
                         SeamothState = really_include_seamoth;
                     }
-                    Debug.Log("Seamoth State: " + SeamothState);
+                    Logging.LogDebug("Seamoth State: " + SeamothState);
                 }
                 if (loginSuccess.SlotData.TryGetValue("include_prawn", out var include_prawn))
                 {
@@ -294,7 +294,7 @@ namespace Archipelago
                     {
                         PrawnState = really_include_prawn;
                     }
-                    Debug.Log("Prawn State: " + PrawnState);
+                    Logging.LogDebug("Prawn State: " + PrawnState);
                 }
                 if (loginSuccess.SlotData.TryGetValue("include_cyclops", out var include_cyclops))
                 {
@@ -302,7 +302,7 @@ namespace Archipelago
                     {
                         CyclopsState = really_include_cyclops;
                     }
-                    Debug.Log("Cyclops State: " + CyclopsState);
+                    Logging.LogDebug("Cyclops State: " + CyclopsState);
                 }
                 Goal = (string)loginSuccess.SlotData["goal"];
                 GoalMapping.TryGetValue(Goal, out GoalEvent);
@@ -315,7 +315,7 @@ namespace Archipelago
                 }
 
 
-                Debug.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData));
+                Logging.Log("SlotData: " + JsonConvert.SerializeObject(loginSuccess.SlotData), ingame:false);
                 ServerConnectInfo.death_link = Convert.ToInt32(loginSuccess.SlotData["death_link"]) > 0;
                 set_deathlink();
 
