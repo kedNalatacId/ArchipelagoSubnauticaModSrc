@@ -49,6 +49,15 @@ namespace Archipelago
             Both
         }
 
+        public enum ReaperAggroRange
+        {
+            Normal,
+            Double,
+            Half,
+            Quarter,
+            None
+        }
+
         public static Dictionary<string, string> GoalMapping = new Dictionary<string, string>()
         {
             { "free", "Goal_Disable_Gun" },
@@ -56,7 +65,7 @@ namespace Archipelago
             { "infected", "Infection_Progress4" },
         };
 
-        public static int[] AP_VERSION = new int[] { 0, 4, 1 };
+        public static int[] AP_VERSION = new int[] { 0, 6, 2 };
         public static APConnectInfo ServerConnectInfo = new APConnectInfo();
         public static DeathLinkService DeathLinkService = null;
         public static bool DeathLinkKilling = false; // indicates player is currently getting DeathLinked
@@ -69,6 +78,7 @@ namespace Archipelago
         public static string Goal = "launch";
         public static string GoalEvent = "";
         public static int SwimRule = 601;
+        public static bool EmptyTanks = false;
         public static bool ConsiderItems = false;
         public static int SeaglideDepth = 200;
         public static int SeaglideDistance = 800;
@@ -77,7 +87,10 @@ namespace Archipelago
         public static Inclusion CyclopsState = Inclusion.Included;
         public static bool IgnoreRadiation = false;
         public static SlipType CanSlipThrough = SlipType.None;
-        public static bool FreeSamples;
+        public static bool FreeSamples = false;
+        public static bool ReduceResourceClutter = false;
+        public static ReaperAggroRange ReaperAggroDistance = ReaperAggroRange.Normal;
+        public static bool WarperSpawn = true;
         public static bool Silent = false;
         public static Thread TrackerProcessing;
         public static long TrackedLocationsCount = 0;
@@ -160,6 +173,7 @@ namespace Archipelago
             TechType.BaseWaterPark,
             TechType.StarshipDesk,
             TechType.StarshipChair,
+            TechType.StarshipChair2,
             TechType.StarshipChair3,
             TechType.LabCounter,
             TechType.NarrowBed,
@@ -286,13 +300,15 @@ namespace Archipelago
                 {
                     SwimRule = 600;
                 }
-                Debug.Log("Swim Rule: " + SwimRule);
             }
+            Debug.Log("Swim Rule: " + SwimRule);
+
             if (loginSuccess.SlotData.TryGetValue("consider_items", out var consider_items))
             {
                 ConsiderItems = Convert.ToInt32(consider_items) > 0;
-                Debug.Log("Consider Items: " + ConsiderItems);
             }
+            Debug.Log("Consider Items: " + ConsiderItems);
+
             if (loginSuccess.SlotData.TryGetValue("pre_seaglide_distance", out var seaglide_distance))
             {
                 SeaglideDistance = Convert.ToInt32(seaglide_distance);
@@ -304,8 +320,9 @@ namespace Archipelago
                 {
                     SeaglideDistance = 2500;
                 }
-                Debug.Log("PreSeaglideDistance: " + SeaglideDistance);
             }
+            Debug.Log("PreSeaglideDistance: " + SeaglideDistance);
+
             if (loginSuccess.SlotData.TryGetValue("seaglide_depth", out var seaglide_depth))
             {
                 SeaglideDepth = Convert.ToInt32(seaglide_depth);
@@ -317,8 +334,9 @@ namespace Archipelago
                 {
                     SeaglideDepth = 400;
                 }
-                Debug.Log("Seaglide Depth: " + SeaglideDepth);
             }
+            Debug.Log("Seaglide Depth: " + SeaglideDepth);
+
             if (loginSuccess.SlotData.TryGetValue("include_seamoth", out var include_seamoth))
             {
                 // This convoluted mess... works. It only has to run on load, so... good enough for now.
@@ -326,28 +344,60 @@ namespace Archipelago
                 {
                     SeamothState = really_include_seamoth;
                 }
-                Debug.Log("Seamoth State: " + SeamothState);
             }
+            Debug.Log("Seamoth State: " + SeamothState);
+
             if (loginSuccess.SlotData.TryGetValue("include_prawn", out var include_prawn))
             {
                 if (Enum.TryParse(include_prawn.ToString(), true, out Inclusion really_include_prawn))
                 {
                     PrawnState = really_include_prawn;
                 }
-                Debug.Log("Prawn State: " + PrawnState);
             }
+            Debug.Log("Prawn State: " + PrawnState);
+
             if (loginSuccess.SlotData.TryGetValue("include_cyclops", out var include_cyclops))
             {
                 if (Enum.TryParse(include_cyclops.ToString(), true, out Inclusion really_include_cyclops))
                 {
                     CyclopsState = really_include_cyclops;
                 }
-                Debug.Log("Cyclops State: " + CyclopsState);
             }
+            Debug.Log("Cyclops State: " + CyclopsState);
+
             if (loginSuccess.SlotData.TryGetValue("free_samples", out var free_samples))
             {
                 FreeSamples = Convert.ToInt32(free_samples) > 0;
             }
+            Debug.Log("Free Samples: " + FreeSamples);
+
+            if (loginSuccess.SlotData.TryGetValue("reduce_resource_clutter", out var reduce_resource_clutter))
+            {
+                ReduceResourceClutter = Convert.ToInt32(reduce_resource_clutter) > 0;
+            }
+            Debug.Log("Reduce Resource Clutter: " + ReduceResourceClutter);
+
+            if (loginSuccess.SlotData.TryGetValue("reaper_aggro_distance", out var reaper_aggro_distance))
+            {
+                if (Enum.TryParse(reaper_aggro_distance.ToString(), true, out ReaperAggroRange real_reaper_aggro))
+                {
+                    ReaperAggroDistance = real_reaper_aggro;
+                }
+            }
+            Debug.Log("Reaper Aggro Range: " + ReaperAggroDistance);
+
+            if (loginSuccess.SlotData.TryGetValue("warper_spawn", out var warper_spawn))
+            {
+                WarperSpawn = Convert.ToInt32(warper_spawn) > 0;
+            }
+            Debug.Log("Warper Spawn: " + WarperSpawn);
+
+            if (loginSuccess.SlotData.TryGetValue("empty_tanks", out var empty_tanks))
+            {
+                EmptyTanks = Convert.ToInt32(empty_tanks) > 0;
+            }
+            Debug.Log("Empty Tanks: " + EmptyTanks);
+
             if (loginSuccess.SlotData.TryGetValue("can_slip_through", out var can_slip_through))
             {
                 if (Enum.TryParse(can_slip_through.ToString(), true, out SlipType really_slip))
@@ -461,7 +511,7 @@ namespace Archipelago
             var done = new HashSet<long>();
             for (int i = 0; i < Session.Items.AllItemsReceived.Count; i++)
             {
-                var itemID = Session.Items.AllItemsReceived[i].Item;
+                var itemID = Session.Items.AllItemsReceived[i].ItemId;
                 if (ArchipelagoData.ItemCodeToItemType[itemID] == ArchipelagoItemType.Resource || !done.Contains(itemID))
                 {
                     Unlock(itemID, i);
@@ -472,6 +522,7 @@ namespace Archipelago
 
         public static void Unlock(long apItemID, long index)
         {
+            // WIP -- debug why interior growbed doesn't show up in group
             if (ArchipelagoData.GroupItems.TryGetValue(apItemID, out var groupUnlock))
             {
                 foreach (var subUnlock in groupUnlock)
@@ -497,9 +548,18 @@ namespace Archipelago
                 }
 
                 set.Add(index);
-                for (int i = 0; i < set.Count; i++)
+
+                // If reducing resource clutter, only ever receive one (not N where N is the number receiverd thus far)
+                if (ReduceResourceClutter)
                 {
                     Inventory.main.StartCoroutine(PickUp(techType));
+                }
+                else
+                {
+                    for (int i = 0; i < set.Count; i++)
+                    {
+                        Inventory.main.StartCoroutine(PickUp(techType));
+                    }
                 }
 
                 return;
@@ -524,7 +584,7 @@ namespace Archipelago
 
                 if (entry != null)
                 {
-                    int newCount = Session.Items.AllItemsReceived.Count(networkItem => networkItem.Item == apItemID);
+                    int newCount = Session.Items.AllItemsReceived.Count(networkItem => networkItem.ItemId == apItemID);
                     if (newCount == entry.unlocked)
                     {
                         return;
@@ -647,12 +707,12 @@ namespace Archipelago
                 {
                     yield break;
                 }
-                var techData = CraftData.Get(techType, skipWarnings: true);
-                if (techData != null)
+
+                var techtypes = TechData.GetLinkedItems(techType);
+                if (techtypes != null)
                 {
-                    for (int i = 0; i < techData.linkedItemCount; i++)
+                    foreach (var linkedItem in techtypes)
                     {
-                        var linkedItem = techData.GetLinkedItem(i);
                         yield return PickUp(linkedItem);
                     }
                 }

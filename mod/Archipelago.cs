@@ -358,6 +358,43 @@ namespace Archipelago
         }
     }
 
+    [HarmonyPatch(typeof(ReaperLeviathan))]
+    [HarmonyPatch("Update")]
+    internal class ReaperLeviathan_Update_Patch {
+        [HarmonyPostfix]
+        public static void Postfix(ReaperLeviathan __instance)
+        {
+            switch (APState.ReaperAggroDistance)
+            {
+                case APState.ReaperAggroRange.Double:
+                    __instance.Aggression.Value = __instance.Aggression.Value * 2;
+                    break;
+                case APState.ReaperAggroRange.Half:
+                    __instance.Aggression.Value = __instance.Aggression.Value / 2;
+                    break;
+                case APState.ReaperAggroRange.Quarter:
+                    __instance.Aggression.Value = __instance.Aggression.Value / 4;
+                    break;
+                case APState.ReaperAggroRange.None:
+                    __instance.Aggression.Value = 0.0f;
+                    break;
+                case APState.ReaperAggroRange.Normal:
+                default:
+                    break;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(WarperSpawner))]
+    [HarmonyPatch("Update")]
+    internal class Warper_Update_Patch {
+        [HarmonyPrefix]
+        public static bool Prefix()
+        {
+            return APState.WarperSpawn;
+        }
+    }
+
     [HarmonyPatch(typeof(PDAScanner))]
     [HarmonyPatch("UpdateTarget")]
     internal class PDAScanner_UpdateTarget_Patch
@@ -595,11 +632,11 @@ namespace Archipelago
 
     [HarmonyPatch(typeof(SpriteManager))]
     [HarmonyPatch("Get")]
-    [HarmonyPatch(new Type[] { typeof(SpriteManager.Group), typeof(string) })]
+    [HarmonyPatch(new Type[] { typeof(SpriteManager.Group), typeof(string), typeof(UnityEngine.Sprite) })]
     internal class MoonpoolFabricator_CraftNodeIcon
     {
         [HarmonyPrefix]
-        public static bool RewriteCraftNodeIcon(ref Atlas.Sprite __result, SpriteManager.Group group, string name)
+        public static bool RewriteCraftNodeIcon(ref UnityEngine.Sprite __result, SpriteManager.Group group, string name, UnityEngine.Sprite defaultSprite)
         {
             if (string.IsNullOrEmpty(name))
             {
@@ -857,7 +894,7 @@ namespace Archipelago
                 if (APState.ServerConnectInfo.index < APState.Session.Items.AllItemsReceived.Count)
                 {
                     APState.Unlock(APState.Session.Items.AllItemsReceived[
-                        Convert.ToInt32(APState.ServerConnectInfo.index)].Item, APState.ServerConnectInfo.index);
+                        Convert.ToInt32(APState.ServerConnectInfo.index)].ItemId, APState.ServerConnectInfo.index);
                     APState.ServerConnectInfo.index++;
                     // We only do x at a time. To not crowd the on screen log/events too fast
                     APState.unlock_dequeue_timeout = dequeueTime;
@@ -893,6 +930,37 @@ namespace Archipelago
             {
                 APState.ServerConnectInfo.FillFromLastConnect(lastConnectInfo);
             }
+        }
+    }
+
+
+    [HarmonyPatch(typeof(Player))]
+    [HarmonyPatch("Start")]
+    internal class PlayerStartPatch
+    {
+        [HarmonyPostfix]
+        public static void PatchPlayerOxygenTank(Player __instance)
+        {
+            Inventory.main.equipment.onEquip += EquipmentChanged;
+        }
+        private static void EquipmentChanged(string slot, InventoryItem item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            if (APState.EmptyTanks)
+            {
+                Oxygen component = item.item.GetComponent<Oxygen>();
+                if (component == null)
+                {
+                    return;
+                }
+                // prevent cheating logic by swapping between oxygen tanks
+                component.RemoveOxygen(component.oxygenCapacity);
+            }
+
         }
     }
 
