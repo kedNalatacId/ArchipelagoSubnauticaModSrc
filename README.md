@@ -5,8 +5,8 @@ A Subnautica mod client for Archipelago Randomizer. More info on Archipelago her
 This is NOT the regular archipelago subnautica mod. It's likely not the one you want!
 Do not use this version unless you've found the accompanying archipelago library and are generating locally.
 
-This mod is intended to be used with Ken's version of Archipelago here:
-https://github.com/kedNalatacId/Archipelago/tree/subnautica
+This mod is intended to be used with Ken's version of subnautica apworld here:
+[https://github.com/kedNalatacId/alternate-subnautica-apworld](https://github.com/kedNalatacId/alternate-subnautica-apworld)
 
 Noted differences:
 - Swim depth is a range from 100-600
