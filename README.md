@@ -36,7 +36,7 @@ In a later update this mod will hopefully scan the alternate folder to have all 
 
 Additionally, the encyclopedia and logic json files are not compatible between the OG archipelago subnautica mod and this one.
 
-### Noted differences
+### Noted differences (Why to use this mod)
 
 - Swim depth is a range from 100-600
     - defaults to 200m (old "easy" mode)
@@ -50,12 +50,13 @@ Additionally, the encyclopedia and logic json files are not compatible between t
         - TODO: Add Prawn with grapple?
 - "Ignore Radiation" means logic doesn't care about the radiation suit (opens aurora as sphere one)
 - Number of checks is always printed (even if none are available)
-- Depth of closest check is also printed.
+  - A special "no checks in logic" message shown when no checks are in logic, making that state clearer.
+- Depth of closest check is printed when available.
 - Allow ignoring all 3x vehicles logically, or removing them entirely
     - Use alternate logic if all 3x vehicles are gone
     - Allow the Cyclops Shield Generator to be built at the Moonpool if the Cyclops is not in game and the goal is "launch"
 - Added a "Cancel" button to the login. If pressed, can play non-AP Subnautica.
-- Removed Picture Frame scan possibility (accidental oversight)
+- Removed Picture Frame and Desk scan possibility (accidental oversight from original mod)
 - Added backwards compatibility for original archipelago mod
     - correctly parse and bypass: SwimRule, Propulsion Cannon, Laser Cutter, and Seaglide
 - Added "Can Slip Through" option for bypassing Propulsion Cannon or Laser Cutter on certain checks
@@ -65,5 +66,4 @@ Additionally, the encyclopedia and logic json files are not compatible between t
 - Allow naming games (makes it easier to play multiple games at once)
     - Archipelago games will also have "AP: " pre-pended to their style
     - e.g. `AP: Creative` or `AP: Survival`
-- Don't learn the Ion Battery or Ion Power Cell from the Inactive Lava Zone (thanks to Berserker)
 </details>
