@@ -5,10 +5,39 @@ A Subnautica mod client for Archipelago Randomizer. More info on Archipelago her
 This is NOT the regular archipelago subnautica mod. It's likely not the one you want!
 Do not use this version unless you've found the accompanying archipelago library and are generating locally.
 
+<details>
+<summary>How to use this mod</summary>
+
+### Use and intention
 This mod is intended to be used with Ken's version of subnautica apworld here:
 [https://github.com/kedNalatacId/alternate-subnautica-apworld](https://github.com/kedNalatacId/alternate-subnautica-apworld)
 
-Noted differences:
+### How to use this mod
+- Install BepInEx
+  - There are other guides for this, for your platform
+- Move the OG archipelago subnautica dll aside, if installed
+  - Keep the Archipelago.MultiClient.dll, if installed
+- Compile this dll
+  - using dotnet, something like:
+    - dotnet build --configuration release
+- Move it into place into your BepInEx plugins folder
+  - if needed, create an archipelago folder
+- If you do not have an Archipelago.MultiClient.dll, download and put into the same folder
+- Using the alternate apworld (see link above), run `python3 exports.py` to create the encyclopedia.json and logic.json
+  - move the encyclopedia.json into the archipelago plugin folder, overwriting the OG archipelago version of such if it exists
+  - these files are not compatible with OG subnautica; they will have to be reverted. You may want to keep copies of the original versions for easy uninstall later, if you're so inclined.
+- Launch Subnautica and see if the archipelago login appears on screen. Contact Ken with a debug log if not.
+
+### Potential breaking changes
+
+Newer Archipelago Subnautica mods hide the non-AP saves by using an alternate directory. If you want to access both AP and non-AP saves, you'll need to move the saves out of the subfolder and into the main folder. The saves are not "lost". If you are in the middle of an archipelago game you may want to hold off on changing out mods, just in case.
+
+In a later update this mod will hopefully scan the alternate folder to have all saves available (if that's possible).
+
+Additionally, the encyclopedia and logic json files are not compatible between the OG archipelago subnautica mod and this one.
+
+### Noted differences
+
 - Swim depth is a range from 100-600
     - defaults to 200m (old "easy" mode)
 - "Consider Items" is its own toggle
@@ -37,3 +66,4 @@ Noted differences:
     - Archipelago games will also have "AP: " pre-pended to their style
     - e.g. `AP: Creative` or `AP: Survival`
 - Don't learn the Ion Battery or Ion Power Cell from the Inactive Lava Zone (thanks to Berserker)
+</details>
