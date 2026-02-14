@@ -93,8 +93,8 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$(CopyIntoPlace)">
-    <Exec Command="$(CopyCommand) $(TargetPath) $(SubnauticaDir)BepInEx$(PathSep)plugins$(PathSep)Archipelago$(PathSep)Archipelago.dll" IgnoreExitCode="true" />
-    <Exec Command="$(CopyCommand) $(TargetDir)Archipelago.MultiClient.Net.dll $(SubnauticaDir)BepInEx$(PathSep)plugins$(PathSep)Archipelago$(PathSep)Archipelago.MultiClient.Net.dll" IgnoreExitCode="true" />
+    <Exec Command="$(CopyCommand) $(TargetPath) '$(SubnauticaDir)BepInEx$(PathSep)plugins$(PathSep)Archipelago$(PathSep)Archipelago.dll'" IgnoreExitCode="true" />
+    <Exec Command="$(CopyCommand) $(TargetDir)Archipelago.MultiClient.Net.dll '$(SubnauticaDir)BepInEx$(PathSep)plugins$(PathSep)Archipelago$(PathSep)Archipelago.MultiClient.Net.dll'" IgnoreExitCode="true" />
   </Target>
 
 </Project>
