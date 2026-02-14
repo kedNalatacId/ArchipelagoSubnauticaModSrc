@@ -5,57 +5,95 @@
     <Configurations>Debug;Release</Configurations>
     <LangVersion>latestmajor</LangVersion>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+
+    <!-- Replace the below with your values -->
+    <!-- Make sure to preserve the trailing slash for the Subnautica Directories-->
+    <SubnauticaDir>/path/to/Steam/Subnautica/</SubnauticaDir>
+    <SubnauticaDataSubDir>Subnautica_Data/Managed/</SubnauticaDataSubDir>
+    <PathSep>/</PathSep>
+    <CopyIntoPlace>true</CopyIntoPlace>
+    <CopyCommand>COPY</CopyCommand>
+    <!-- User configurable section ends here; don't modify below here unless you know what you're doing. -->
+
+    <!-- Examples per OS:
+
+     #  example Windows style
+    <ExampleWindowsSubnauticaDir>D:\SteamLibrary\SteamApps\common\Subnautica\</ExampleWindowsSubnauticaDir>
+    <ExampleWindowsSubnauticaDataSubDir>Subnautica_Data\Managed\</ExampleWindowsSubnauticaDataSubDir>
+    <ExampleWindowsPathSep>\</ExampleWindowsPathSep>
+    <ExampleWindowsCopyCommand>COPY</ExampleWindowsCopyCommand>
+
+     # example mac style
+    <ExampleMacSubnauticaDir>/Users/<user>/Library/Application Support/Steam/steamapps/common/Subnautica/</ExampleMacSubnauticaDir>
+    <ExampleMacSubnauticaDataSubDir>Subnautica.app/Contents/Resources/Data/Managed/</ExampleMacSubnauticaDataSubDir>
+    <ExampleMacPathSep>/</ExampleMacPathSep>
+    <ExampleMacCopyCommand>cp</ExampleMacCopyCommand>
+
+     # example linux style
+    <ExampleLinuxSubnauticaDir>Please submit a reference example!</ExampleLinuxSubnauticaDir>
+    <ExampleLinuxSubnauticaDataSubDir>Please submit a reference example!</ExampleLinuxSubnauticaDataSubDir>
+    <ExampleLinuxPathSep>/<ExampleLinux/PathSep>
+    <ExampleLinuxCopyCommand>cp</ExampleLinuxCopyCommand>
+
+    -->
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="0Harmony">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\BepInEx\core\0Harmony.dll</HintPath>
+      <HintPath>$(SubnauticaDir)BepInEx$(PathSep)core$(PathSep)0Harmony.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(SubnauticaDir)$(SubnauticaDataSubDir)Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>$(SubnauticaDir)$(SubnauticaDataSubDir)Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\BepInEx\core\BepInEx.dll</HintPath>
+      <HintPath>$(SubnauticaDir)BepInEx$(PathSep)core$(PathSep)BepInEx.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx.Harmony">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\BepInEx\core\BepInEx.Harmony.dll</HintPath>
+      <HintPath>$(SubnauticaDir)BepInEx$(PathSep)core$(PathSep)BepInEx.Harmony.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx.Preloader">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\BepInEx\core\BepInEx.Preloader.dll</HintPath>
+      <HintPath>$(SubnauticaDir)BepInEx$(PathSep)core$(PathSep)BepInEx.Preloader.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>special\Newtonsoft.Json.dll</HintPath>
+      <HintPath>special$(PathSep)Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="PlatformIODefault">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\PlatformIODefault.dll</HintPath>
+      <HintPath>$(SubnauticaDir)$(SubnauticaDataSubDir)PlatformIODefault.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Addressables">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\Unity.Addressables.dll</HintPath>
+      <HintPath>$(SubnauticaDir)$(SubnauticaDataSubDir)Unity.Addressables.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(SubnauticaDir)$(SubnauticaDataSubDir)Unity.TextMeshPro.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(SubnauticaDir)$(SubnauticaDataSubDir)UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(SubnauticaDir)$(SubnauticaDataSubDir)UnityEngine.UI.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(SubnauticaDir)$(SubnauticaDataSubDir)UnityEngine.CoreModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>D:\SteamLibrary\SteamApps\common\Subnautica\Subnautica_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+      <HintPath>$(SubnauticaDir)$(SubnauticaDataSubDir)UnityEngine.IMGUIModule.dll</HintPath>
     </Reference>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Archipelago.MultiClient.Net" Version="5.0.6" />
+    <PackageReference Include="Archipelago.MultiClient.Net" Version="6.6.1" />
   </ItemGroup>
 
   <ItemGroup>
     <None Remove="mod.json" />
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="COPY $(TargetPath) D:\SteamLibrary\steamapps\common\Subnautica\BepInEx\plugins\Archipelago\Archipelago.dll&#xD;&#xA;&#xD;&#xA;COPY $(TargetDir)Archipelago.MultiClient.Net.dll D:\SteamLibrary\steamapps\common\Subnautica\BepInEx\plugins\Archipelago\Archipelago.MultiClient.Net.dll" />
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$(CopyIntoPlace)">
+    <Exec Command="$(CopyCommand) $(TargetPath) $(SubnauticaDir)BepInEx$(PathSep)plugins$(PathSep)Archipelago$(PathSep)Archipelago.dll" />
+    <Exec Command="$(CopyCommand) $(TargetDir)Archipelago.MultiClient.Net.dll $(SubnauticaDir)BepInEx$(PathSep)plugins$(PathSep)Archipelago$(PathSep)Archipelago.MultiClient.Net.dll" />
   </Target>
 
 </Project>

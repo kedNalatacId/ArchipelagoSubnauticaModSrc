@@ -17,15 +17,25 @@ This mod is intended to be used with Ken's version of subnautica apworld here:
   - There are other guides for this, for your platform
 - Move the OG archipelago subnautica dll aside, if installed
   - Keep the Archipelago.MultiClient.dll, if installed
-- Compile this dll
+- Update the csproj file to point to your personal Subnautica and Subnautica data dirs
+  - example directories for windows and mac can be found in the csproj file.
+  - You only need to update the top three entries in the project section labeled:
+    - SubnauticaDir
+    - SubnauticaDataSubDir
+    - PathSep
+    - CopyCommand (if you want compilation to copy into place for you, which is the default)
+- Compile the Archipelago dll
   - using dotnet, something like:
-    - dotnet build --configuration release
+    - dotnet build --configuration Release
 - Move it into place into your BepInEx plugins folder
+  - if the "CopyIntoPlace" directive in the csproj file is set to true, this step is automatically done for you
   - if needed, create an archipelago folder
-- If you do not have an Archipelago.MultiClient.dll, download and put into the same folder
-- Using the alternate apworld (see link above), run `python3 exports.py` to create the encyclopedia.json and logic.json
+  - similar to (but customize as needed):
+    - `cp obj/Release/netstandard2.0/Archipelago.dll <path.to.Subnautica>/BepInEx/plugins/Archipelago/`
+- If you do not have an Archipelago.MultiClient.dll already in the BepInEx Archipelago folder, copy the version you used to compile the mod into the same folder
+- Using the alternate apworld (see link above), run `python3 exports.py` to create the encyclopedia.json.
   - move the encyclopedia.json into the archipelago plugin folder, overwriting the OG archipelago version of such if it exists
-  - these files are not compatible with OG subnautica; they will have to be reverted. You may want to keep copies of the original versions for easy uninstall later, if you're so inclined.
+  - the encyclopedia file is not compatible with OG subnautica; it will have to be reverted if you choose to uninstall this mod. You may want to keep copies of the original versions for easy uninstall later.
 - Launch Subnautica and see if the archipelago login appears on screen. Contact Ken with a debug log if not.
 
 ### Potential breaking changes
