@@ -17,13 +17,14 @@ This mod is intended to be used with Ken's version of subnautica apworld here:
   - There are other guides for this, for your platform
 - Move the OG archipelago subnautica dll aside, if installed
   - Keep the Archipelago.MultiClient.dll, if installed
-- Update the csproj file to point to your personal Subnautica and Subnautica data dirs
-  - example directories for windows and mac can be found in the csproj file.
-  - You only need to update the top three entries in the project section labeled:
-    - SubnauticaDir
-    - SubnauticaDataSubDir
-    - PathSep
-    - CopyCommand (if you want compilation to copy into place for you, which is the default)
+- Update the csproj file as appropriate:
+  - your subnautica dir and data dir (SubnauticaDir and SubnauticaDataSubDir)
+    - example directories for windows and mac can be found in the csproj file.
+  - your operating system's path separator (PathSep)
+  - your operating system's preferred copy command
+    - if you want compilation to copy into place for you, which is the default
+  - whether you want compilation to automatically copy the files into place once complete
+  - the version of Archipelago.MultiClient.dll you're using
 - Compile the Archipelago dll
   - using dotnet, something like:
     - dotnet build --configuration Release
